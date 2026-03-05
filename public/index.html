@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw Dashboard</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: #1a1a24;
+      --accent-primary: #6366f1;
+      --accent-success: #10b981;
+      --accent-warning: #f59e0b;
+      --accent-danger: #ef4444;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --border-color: #2d2d3a;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 16px; }
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 0; margin-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .logo {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 18px;
+    }
+    .tabs {
+      display: flex; gap: 4px; background: var(--bg-secondary);
+      padding: 4px; border-radius: 12px; margin-bottom: 20px;
+      overflow-x: auto;
+    }
+    .tab {
+      padding: 10px 16px; font-size: 13px; font-weight: 500;
+      color: var(--text-secondary); background: transparent;
+      border: none; border-radius: 8px; cursor: pointer; white-space: nowrap;
+    }
+    .tab.active { background: var(--accent-primary); color: white; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .card {
+      background: var(--bg-card); border-radius: 16px; padding: 20px;
+      margin-bottom: 16px; border: 1px solid var(--border-color);
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 14px; font-weight: 600; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .btn {
+      padding: 8px 16px; border-radius: 8px; border: none;
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+      color: white;
+    }
+    .btn-secondary {
+      background: var(--bg-secondary); color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+    .status-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    }
+    .status-item {
+      background: var(--bg-secondary); padding: 16px; border-radius: 12px;
+    }
+    .status-label { font-size: 12px; color: var(--text-muted); }
+    .status-value {
+      font-size: 18px; font-weight: 600; font-family: monospace;
+    }
+    .status-value.success { color: var(--accent-success); }
+    .status-value.danger { color: var(--accent-danger); }
+    .logs-container {
+      background: #0d1117; border-radius: 12px; padding: 16px;
+      max-height: 400px; overflow-y: auto;
+      font-family: 'SF Mono', monospace; font-size: 11px;
+      line-height: 1.6; color: #c9d1d9;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .config-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .config-tab {
+      padding: 6px 12px; font-size: 12px;
+      background: var(--bg-secondary); border: 1px solid var(--border-color);
+      border-radius: 8px; color: var(--text-secondary); cursor: pointer;
+    }
+    .config-tab.active { background: var(--accent-primary); color: white; }
+    .config-editor textarea {
+      width: 100%; min-height: 300px; padding: 14px;
+      background: #0d1117; border: 1px solid var(--border-color);
+      border-radius: 12px; color: #c9d1d9;
+      font-family: 'SF Mono', monospace; font-size: 12px;
+      resize: vertical;
+    }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-card); border: 1px solid var(--border-color);
+      padding: 12px 20px; border-radius: 12px; font-size: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      z-index: 1000; display: none;
+    }
+    .toast.show { display: block; }
+    .backup-item {
+      padding: 12px; background: var(--bg-secondary);
+      border-radius: 8px; display: flex;
+      align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    select, input {
+      padding: 8px; background: var(--bg-secondary);
+      border: 1px solid var(--border-color); border-radius: 8px;
+      color: var(--text-primary); font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="logo">OC</div>
+        <h1 style="font-size:20px;">OpenClaw Dashboard</h1>
+      </div>
+      <button class="btn btn-secondary" onclick="refreshAll()">刷新</button>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="dashboard">概览</button>
+      <button class="tab" data-tab="models">模型</button>
+      <button class="tab" data-tab="skills">Skills</button>
+      <button class="tab" data-tab="cron">定时任务</button>
+      <button class="tab" data-tab="logs">日志</button>
+      <button class="tab" data-tab="config">配置</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="section active" id="section-dashboard">
+      <div class="card">
+        <div class="card-header"><span class="card-title">📊 系统状态</span></div>
+        <div class="status-grid">
+          <div class="status-item">
+            <div class="status-label">Gateway</div>
+            <div class="status-value" id="gw-status">--</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">版本</div>
+            <div class="status-value" id="version">--</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Telegram</div>
+            <div class="status-value" id="tg-status">--</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">定时任务</div>
+            <div class="status-value" id="cron-count">--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Models -->
+    <div class="section" id="section-models">
+      <div class="card">
+        <div class="card-header"><span class="card-title">🤖 模型配置</span></div>
+        <div id="model-list">加载中...</div>
+      </div>
+    </div>
+
+    <!-- Skills -->
+    <div class="section" id="section-skills">
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔧 Skills</span></div>
+        <div id="skills-list">加载中...</div>
+      </div>
+    </div>
+
+    <!-- Cron -->
+    <div class="section" id="section-cron">
+      <div class="card">
+        <div class="card-header"><span class="card-title">⏰ 定时任务</span></div>
+        <div id="cron-list">加载中...</div>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="section" id="section-logs">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📜 日志</span>
+          <button class="btn btn-primary" onclick="loadLogs()">刷新</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <select id="log-file" onchange="loadLogs()">
+            <option value="gateway.log">全部日志</option>
+            <option value="gateway.error.log">错误日志</option>
+            <option value="gateway.err.log">Err日志</option>
+          </select>
+          <input type="text" id="log-filter" placeholder="筛选关键词..." style="flex:1;" />
+          <button class="btn btn-secondary" onclick="loadLogs()">筛选</button>
+        </div>
+        <div class="logs-container" id="logs-container">加载中...</div>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <div class="section" id="section-config">
+      <div class="card">
+        <div class="card-header"><span class="card-title">⚡ 快捷操作</span></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+          <button class="btn btn-primary" onclick="createBackup()">备份配置</button>
+          <button class="btn btn-secondary" onclick="restartGateway()">重启Gateway</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">📋 备份记录</span></div>
+        <div id="backup-list">加载中...</div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">📁 配置文件</span></div>
+        <div class="config-tabs">
+          <button class="config-tab active" onclick="switchConfig('openclaw.json', this)">openclaw.json</button>
+          <button class="config-tab" onclick="switchConfig('jobs.json', this)">jobs.json</button>
+        </div>
+        <div class="config-editor">
+          <textarea id="config-content"></textarea>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
+            <button class="btn btn-primary" onclick="saveConfig()">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API_BASE = '';
+    let currentTab = 'dashboard';
+    let currentConfig = 'openclaw.json';
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    async function api(url) {
+      try {
+        const res = await fetch(API_BASE + url);
+        return await res.json();
+      } catch (e) {
+        return { error: e.message };
+      }
+    }
+
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('section-' + tab.dataset.tab).classList.add('active');
+        currentTab = tab.dataset.tab;
+      });
+    });
+
+    async function refreshAll() {
+      showToast('刷新中...');
+      loadStatus();
+      loadModels();
+      loadSkills();
+      loadCron();
+      loadLogs();
+      loadBackups();
+      loadConfigs();
+    }
+
+    async function loadStatus() {
+      const data = await api('/api/status');
+      if (data.error) return;
+      document.getElementById('gw-status').textContent = data.gatewayStatus === 'running' ? '运行中' : '已停止';
+      document.getElementById('gw-status').className = 'status-value ' + (data.gatewayStatus === 'running' ? 'success' : 'danger');
+      document.getElementById('version').textContent = data.version || '--';
+      document.getElementById('tg-status').textContent = data.channels?.telegram?.enabled ? '已启用' : '未启用';
+      document.getElementById('cron-count').textContent = data.cronJobs || 0;
+    }
+
+    async function loadModels() {
+      const data = await api('/api/models');
+      if (data.error) return;
+      const container = document.getElementById('model-list');
+      let html = '';
+      for (const [provider, cfg] of Object.entries(data.providers || {})) {
+        for (const model of cfg.models || []) {
+          html += `<div style="padding:14px;background:var(--bg-secondary);border-radius:12px;margin-bottom:8px;">${model.name}<br><small style="color:var(--text-muted)">${provider}</small></div>`;
+        }
+      }
+      container.innerHTML = html || '暂无模型';
+    }
+
+    async function loadSkills() {
+      const data = await api('/api/skills');
+      if (data.error) return;
+      const container = document.getElementById('skills-list');
+      container.innerHTML = (data || []).map(s => `<div style="padding:10px;background:var(--bg-secondary);border-radius:8px;margin-bottom:6px;font-size:13px;">${s.name}</div>`).join('') || '暂无Skills';
+    }
+
+    async function loadCron() {
+      const data = await api('/api/cron');
+      if (data.error) return;
+      const container = document.getElementById('cron-list');
+      container.innerHTML = (data || []).map(j => `
+        <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;">
+          <div style="font-weight:500;font-size:14px;">${j.name}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${j.schedule} · ${j.model}</div>
+        </div>
+      `).join('') || '暂无定时任务';
+    }
+
+    async function loadLogs() {
+      const file = document.getElementById('log-file')?.value || 'gateway.log';
+      const filter = document.getElementById('log-filter')?.value || '';
+      const container = document.getElementById('logs-container');
+      
+      const filterParam = filter ? `&filter=${encodeURIComponent(filter)}` : '';
+      const data = await api(`/api/logs?lines=200&file=${file}${filterParam}`);
+      
+      container.textContent = data.content || data.error || '暂无日志';
+    }
+
+    async function loadBackups() {
+      const data = await api('/api/backups');
+      const container = document.getElementById('backup-list');
+      container.innerHTML = (data || []).map(b => `
+        <div class="backup-item">
+          <div>
+            <div style="font-weight:500;font-size:13px;">${b.name}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${new Date(b.created).toLocaleString('zh-CN')}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="viewBackup('${b.name}')">查看</button>
+            <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="restoreBackup('${b.name}')">恢复</button>
+          </div>
+        </div>
+      `).join('') || '暂无备份';
+    }
+
+    async function viewBackup(name) {
+      const data = await api('/api/backup/' + name + '/details');
+      if (data.error) return showToast('加载失败');
+      const time = (data.changelog || '').match(/\*\*备份时间\*\*:\s*(.+)/)?.[1] || '未知';
+      const content = (data.changelog || '').match(/### 修改内容\n(.+?)(?=\n###|$)/s)?.[1]?.replace(/^- /gm, '').trim() || '无';
+      alert('📋 备份信息\n\n⏰ 备份时间: ' + time + '\n\n📝 修改内容: ' + content);
+    }
+
+    async function restoreBackup(name) {
+      if (!confirm('确定要恢复 ' + name + ' 吗？\n当前配置将被覆盖！')) return;
+      const res = await fetch(API_BASE + '/api/backup/' + name + '/restore', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.success ? '备份已恢复' : '恢复失败');
+    }
+
+    async function createBackup() {
+      const desc = prompt('备份说明:', '手动备份');
+      if (desc === null) return;
+      const res = await fetch(API_BASE + '/api/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: desc })
+      });
+      const data = await res.json();
+      showToast(data.success ? '备份成功' : '备份失败');
+      loadBackups();
+    }
+
+    async function restartGateway() {
+      if (!confirm('确定要重启Gateway吗？')) return;
+      const res = await fetch(API_BASE + '/api/gateway/restart', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.success ? 'Gateway正在重启...' : data.error);
+    }
+
+    async function loadConfigs() {
+      const data = await api('/api/configs');
+      if (data.error) return;
+      const cfg = data.find(c => c.id === currentConfig);
+      if (cfg) document.getElementById('config-content').value = cfg.content || '';
+    }
+
+    function switchConfig(id, btn) {
+      currentConfig = id;
+      document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      loadConfigs();
+    }
+
+    async function saveConfig() {
+      const content = document.getElementById('config-content').value;
+      const res = await fetch(API_BASE + '/api/config/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentConfig, content })
+      });
+      const data = await res.json();
+      showToast(data.success ? '配置已保存' : '保存失败: ' + data.error);
+    }
+
+    // Init
+    refreshAll();
+  </script>
+</body>
+</html>

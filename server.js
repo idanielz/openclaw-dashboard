@@ -1,0 +1,754 @@
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+const https = require('https');
+const http = require('http');
+
+const app = express();
+const PORT = 18790;
+const OPENCLAW_DIR = process.env.HOME + '/.openclaw';
+const WORKSPACE_DIR = OPENCLAW_DIR + '/workspace';
+
+// OpenWeatherMap Token - 需要用户配置
+const WEATHER_TOKEN = process.env.OPENWEATHERMAP_TOKEN || '';
+
+// CORS and JSON
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Helper: Execute shell command
+function execAsync(cmd) {
+  return new Promise((resolve, reject) => {
+    exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) reject(error);
+      else resolve(stdout);
+    });
+  });
+}
+
+// Helper: Read file safely
+function readFile(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+// API: OpenClaw Status
+app.get('/api/status', async (req, res) => {
+  try {
+    const config = JSON.parse(readFile(OPENCLAW_DIR + '/openclaw.json') || '{}');
+    const jobs = JSON.parse(readFile(OPENCLAW_DIR + '/jobs.json') || '{}');
+    
+    // Check if gateway is running - try to connect to the port
+    let gatewayStatus = 'stopped';
+    try {
+      const result = await execAsync('curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/health');
+      gatewayStatus = result.trim() === '200' ? 'running' : 'stopped';
+    } catch {
+      gatewayStatus = 'stopped';
+    }
+
+    // Check for new version
+    let updateInfo = { available: false, version: '' };
+    try {
+      const updateCheck = JSON.parse(readFile(OPENCLAW_DIR + '/update-check.json') || '{}');
+      if (updateCheck.latestVersion && updateCheck.currentVersion) {
+        updateInfo = {
+          available: updateCheck.latestVersion !== updateCheck.currentVersion,
+          version: updateCheck.latestVersion
+        };
+      }
+    } catch {}
+
+    const cronList = jobs.jobs || [];
+
+    res.json({
+      version: config.meta?.lastTouchedVersion || 'unknown',
+      gatewayPort: config.gateway?.port || 18789,
+      gatewayStatus,
+      lastTouched: config.meta?.lastTouchedAt,
+      models: config.models?.providers || {},
+      defaultModel: config.agents?.defaults?.model || {},
+      channels: config.channels || {},
+      cronJobs: cronList.length,
+      updateInfo
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Model Configuration
+app.get('/api/models', (req, res) => {
+  try {
+    const config = JSON.parse(readFile(OPENCLAW_DIR + '/openclaw.json') || '{}');
+    res.json({
+      providers: config.models?.providers || {},
+      defaults: config.agents?.defaults?.model || {}
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Switch Model
+app.post('/api/models/switch', express.json(), async (req, res) => {
+  try {
+    const { primary, fallbacks } = req.body;
+    const configPath = OPENCLAW_DIR + '/openclaw.json';
+    const config = JSON.parse(readFile(configPath) || '{}');
+    
+    if (!config.agents) config.agents = {};
+    if (!config.agents.defaults) config.agents.defaults = {};
+    
+    config.agents.defaults.model = { primary, fallbacks: fallbacks || [] };
+    
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    res.json({ success: true, message: `Model switched to ${primary}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Skills List
+app.get('/api/skills', (req, res) => {
+  try {
+    // 读取多个可能的skills目录
+    const possibleDirs = [
+      OPENCLAW_DIR + '/skills',
+      path.join(OPENCLAW_DIR, 'workspace/skills'),
+      path.join(OPENCLAW_DIR, '../.openclaw/skills')
+    ];
+    
+    const skills = [];
+    
+    for (const skillsDir of possibleDirs) {
+      if (fs.existsSync(skillsDir)) {
+        const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            const skillPath = path.join(skillsDir, entry.name);
+            const skillFile = path.join(skillPath, 'SKILL.md');
+            let description = '';
+            if (fs.existsSync(skillFile)) {
+              const content = fs.readFileSync(skillFile, 'utf8');
+              const descMatch = content.match(/^#\s+(.+)/m);
+              description = descMatch ? descMatch[1] : '';
+            }
+            
+            // 避免重复
+            if (!skills.find(s => s.name === entry.name)) {
+              skills.push({
+                name: entry.name,
+                path: skillPath,
+                description
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    res.json(skills);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Cron Jobs with detailed info
+app.get('/api/cron', (req, res) => {
+  try {
+    const jobs = JSON.parse(readFile(OPENCLAW_DIR + '/jobs.json') || '{}');
+    const jobList = (jobs.jobs || []).map(job => {
+      // 解析schedule对象
+      let scheduleExpr = '--';
+      let nextRun = '--';
+      
+      if (job.schedule) {
+        if (typeof job.schedule === 'string') {
+          scheduleExpr = job.schedule;
+        } else if (job.schedule.expr) {
+          scheduleExpr = job.schedule.expr;
+          
+          // 简单解析cron表达式
+          const expr = job.schedule.expr;
+          if (expr === '0 9 * * *') {
+            nextRun = '每天 9:00';
+          } else if (expr === '0 8,20 * * *') {
+            nextRun = '每天 8:00, 20:00';
+          } else if (expr === '0 12 * * *') {
+            nextRun = '每天 12:00';
+          } else if (expr === '0 22 * * *') {
+            nextRun = '每天 22:00';
+          } else if (expr === '0 10 * * 0') {
+            nextRun = '每周日 10:00';
+          } else if (expr.includes('* * * * *')) {
+            nextRun = '每分钟';
+          }
+        }
+      }
+      
+      // 从payload中提取任务信息
+      let taskName = job.name || job.id || 'Unknown';
+      let model = '默认任务';
+      
+      const jobName = (job.name || '').toLowerCase();
+      const payloadText = JSON.stringify(job.payload || {}).toLowerCase();
+      
+      // 根据任务名称和payload判断任务类型
+      if (jobName.includes('gold') || jobName.includes('金价') || payloadText.includes('金价')) {
+        model = '💰 金价监控';
+      } else if (jobName.includes('weather') || jobName.includes('天气') || payloadText.includes('天气')) {
+        model = '🌤️ 天气';
+      } else if (jobName.includes('music') || jobName.includes('音乐')) {
+        model = '🎵 音乐推荐';
+      } else if (jobName.includes('xhs') || jobName.includes('xiaohongshu') || jobName.includes('小红书')) {
+        model = '📕 小红书';
+      } else if (jobName.includes('morning') || jobName.includes('早安')) {
+        model = '☀️ 早安资讯';
+      } else if (jobName.includes('night') || jobName.includes('晚安')) {
+        model = '🌙 晚安资讯';
+      } else if (jobName.includes('xmrth') || jobName.includes('签到')) {
+        model = '✍️ 签到任务';
+      } else if (jobName.includes('tutorial') || jobName.includes('教程')) {
+        model = '📚 技术教程';
+      } else if (jobName.includes('movie') || jobName.includes('电影')) {
+        model = '🎬 电影推荐';
+      }
+      
+      // 从state中获取下次执行时间和状态
+      const state = job.state || {};
+      const lastRunAt = state.lastRunAtMs ? new Date(state.lastRunAtMs).toLocaleString('zh-CN') : '--';
+      const lastStatus = state.lastRunStatus || '--';
+      
+      return {
+        id: job.id || 'unknown',
+        name: taskName,
+        schedule: scheduleExpr,
+        nextRun: nextRun,
+        model: model,
+        enabled: job.enabled !== false,
+        lastRun: lastRunAt,
+        lastStatus: lastStatus
+      };
+    });
+    
+    res.json(jobList);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Telegram Status
+app.get('/api/telegram', async (req, res) => {
+  try {
+    const config = JSON.parse(readFile(OPENCLAW_DIR + '/openclaw.json') || '{}');
+    const telegramDir = OPENCLAW_DIR + '/telegram';
+    
+    let sessions = [];
+    if (fs.existsSync(telegramDir)) {
+      const files = fs.readdirSync(telegramDir);
+      sessions = files.filter(f => f.endsWith('.json')).map(f => {
+        const data = JSON.parse(readFile(path.join(telegramDir, f)) || '{}');
+        return {
+          file: f,
+          ...data
+        };
+      });
+    }
+
+    res.json({
+      enabled: config.channels?.telegram?.enabled || false,
+      botToken: config.channels?.telegram?.botToken ? '***configured***' : 'not set',
+      groups: config.channels?.telegram?.groups || {},
+      sessions: sessions.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Sessions
+app.get('/api/sessions', async (req, res) => {
+  try {
+    // Get delivery queue sessions
+    const sessionsDir = OPENCLAW_DIR + '/delivery-queue';
+    let deliveryQueue = [];
+    
+    if (fs.existsSync(sessionsDir)) {
+      const files = fs.readdirSync(sessionsDir);
+      deliveryQueue = files.filter(f => f.endsWith('.json')).slice(0, 20).map(f => {
+        const data = JSON.parse(readFile(path.join(sessionsDir, f)) || '{}');
+        return {
+          id: f.replace('.json', ''),
+          type: 'delivery-queue',
+          ...data
+        };
+      });
+    }
+    
+    // Get Telegram sessions info
+    const telegramDir = OPENCLAW_DIR + '/telegram';
+    let telegramSessions = [];
+    
+    if (fs.existsSync(telegramDir)) {
+      const files = fs.readdirSync(telegramDir);
+      telegramSessions = files.filter(f => f.startsWith('update-offset-') && f.endsWith('.json')).map(f => {
+        const data = JSON.parse(readFile(path.join(telegramDir, f)) || '{}');
+        return {
+          id: f.replace('update-offset-', '').replace('.json', ''),
+          type: 'telegram',
+          lastUpdate: data.lastUpdate || data.last_offset || null,
+          ...data
+        };
+      });
+    }
+
+    // Get active sessions from delivery-queue
+    const activeSessions = deliveryQueue.filter(s => !s.id.includes('failed'));
+    const failedSessions = deliveryQueue.filter(s => s.id.includes('failed'));
+
+    res.json({
+      deliveryQueue,
+      telegram: telegramSessions,
+      summary: {
+        activeCount: activeSessions.length,
+        failedCount: failedSessions.length,
+        telegramCount: telegramSessions.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Token Usage
+app.get('/api/usage', async (req, res) => {
+  try {
+    // 尝试从日志中解析token使用量
+    const logFile = OPENCLAW_DIR + '/logs/gateway.log';
+    let totalTokens = 0;
+    let requestCount = 0;
+    let modelUsage = {};
+    
+    if (fs.existsSync(logFile)) {
+      const content = fs.readFileSync(logFile, 'utf8');
+      const lines = content.split('\n').slice(-500);
+      
+      // 从日志中解析token使用（如果有的话）
+      for (const line of lines) {
+        try {
+          const logEntry = JSON.parse(line);
+          if (logEntry.usage || logEntry.tokenUsage) {
+            const usage = logEntry.usage || logEntry.tokenUsage;
+            const tokens = (usage.input_tokens || usage.inputTokens || 0) + 
+                          (usage.output_tokens || usage.outputTokens || 0);
+            if (tokens > 0) {
+              totalTokens += tokens;
+              requestCount++;
+              const model = logEntry.model || 'unknown';
+              if (!modelUsage[model]) modelUsage[model] = 0;
+              modelUsage[model] += tokens;
+            }
+          }
+        } catch {}
+      }
+    }
+
+    // 如果没有使用数据，显示配置中的模型信息
+    const config = JSON.parse(readFile(OPENCLAW_DIR + '/openclaw.json') || '{}');
+    const providers = config.models?.providers || {};
+    
+    if (Object.keys(modelUsage).length === 0) {
+      // 显示配置中的模型作为参考
+      for (const [provider, cfg] of Object.entries(providers)) {
+        for (const model of cfg.models || []) {
+          const modelId = provider + '/' + model.id;
+          modelUsage[modelId] = {
+            tokens: 0,
+            percent: 0,
+            configured: true
+          };
+        }
+      }
+    }
+    
+    // 整理输出
+    const models = {};
+    for (const [model, data] of Object.entries(modelUsage)) {
+      if (typeof data === 'object' && data.configured) {
+        models[model] = { tokens: 0, percent: 0, configured: true };
+      } else {
+        const tokens = typeof data === 'number' ? data : (data.tokens || 0);
+        models[model] = {
+          tokens,
+          percent: totalTokens > 0 ? Math.round(tokens / totalTokens * 100) : 0
+        };
+      }
+    }
+
+    res.json({
+      totalTokens,
+      requestCount,
+      models,
+      note: Object.keys(modelUsage).length === 0 || Object.values(modelUsage).every(v => v.tokens === 0) ? 
+            '暂无使用量统计' : null
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Weather
+app.get('/api/weather', (req, res) => {
+  if (!WEATHER_TOKEN) {
+    res.json({ error: 'OpenWeatherMap Token未配置', configNeeded: true });
+    return;
+  }
+  
+  const lat = 39.9042;
+  const lon = 116.4074;
+  const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=zh_cn&appid=${WEATHER_TOKEN}`;
+  
+  https.get(url, (response) => {
+    let data = '';
+    response.on('data', chunk => data += chunk);
+    response.on('end', () => {
+      try {
+        const weather = JSON.parse(data);
+        if (weather.cod === 401) {
+          res.json({ error: 'Token无效', configNeeded: true });
+          return;
+        }
+        res.json({
+          temp: Math.round(weather.main?.temp || 0),
+          feels_like: Math.round(weather.main?.feels_like || 0),
+          humidity: weather.main?.humidity || 0,
+          description: weather.weather?.[0]?.description || '',
+          icon: weather.weather?.[0]?.icon || '',
+          city: weather.name || 'Beijing'
+        });
+      } catch {
+        res.json({ error: '解析天气数据失败' });
+      }
+    });
+  }).on('error', (error) => {
+    res.json({ error: error.message });
+  });
+});
+
+// API: Logs with filtering support
+app.get('/api/logs', async (req, res) => {
+  try {
+    const { lines = 200, file = 'gateway.log', filter = '' } = req.query;
+    const logFile = OPENCLAW_DIR + '/logs/' + file;
+    
+    if (fs.existsSync(logFile)) {
+      let content = fs.readFileSync(logFile, 'utf8');
+      
+      // Apply filter if provided
+      if (filter) {
+        const filterLower = filter.toLowerCase();
+        const allLines = content.split('\n');
+        content = allLines.filter(line => line.toLowerCase().includes(filterLower)).join('\n');
+        // Get last N lines after filtering
+        const filteredLines = content.split('\n').slice(-parseInt(lines));
+        content = filteredLines.join('\n');
+      } else {
+        const allLines = content.split('\n');
+        content = allLines.slice(-parseInt(lines)).join('\n');
+      }
+      
+      const stats = fs.statSync(logFile);
+      res.json({
+        content,
+        modified: stats.mtime.getTime(),
+        availableFiles: ['gateway.log', 'gateway.error.log', 'gateway.err.log', 'config-audit.jsonl']
+      });
+    } else {
+      res.json({ content: 'Log file not found', modified: 0, availableFiles: [] });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: System Info
+app.get('/api/system', async (req, res) => {
+  try {
+    const uptime = await execAsync('uptime');
+    res.json({
+      uptime: uptime.trim()
+    });
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
+
+// API: Config Files List
+app.get('/api/configs', (req, res) => {
+  try {
+    const configs = [
+      { id: 'openclaw.json', name: 'OpenClaw 主配置', path: OPENCLAW_DIR + '/openclaw.json' },
+      { id: 'jobs.json', name: '定时任务配置', path: OPENCLAW_DIR + '/jobs.json' },
+      { id: 'AGENTS.md', name: 'Agent配置', path: WORKSPACE_DIR + '/AGENTS.md' },
+      { id: 'SOUL.md', name: '身份配置', path: WORKSPACE_DIR + '/SOUL.md' },
+      { id: 'TOOLS.md', name: '工具配置', path: WORKSPACE_DIR + '/TOOLS.md' },
+      { id: 'USER.md', name: '用户配置', path: WORKSPACE_DIR + '/USER.md' },
+      { id: 'MEMORY.md', name: '长期记忆', path: WORKSPACE_DIR + '/MEMORY.md' },
+      { id: 'HEARTBEAT.md', name: '心跳配置', path: WORKSPACE_DIR + '/HEARTBEAT.md' }
+    ];
+    
+    const result = configs.map(c => {
+      const exists = fs.existsSync(c.path);
+      let content = '';
+      let size = 0;
+      let modified = null;
+      
+      if (exists) {
+        const stats = fs.statSync(c.path);
+        size = stats.size;
+        modified = stats.mtime.toISOString();
+        if (c.path.endsWith('.json')) {
+          const data = JSON.parse(readFile(c.path) || '{}');
+          content = JSON.stringify(data, null, 2);
+        } else {
+          content = readFile(c.path) || '';
+        }
+      }
+      
+      return { ...c, exists, size, modified, content: content.substring(0, 5000) };
+    });
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Backup - Create (using OpenClaw's official backup)
+app.post('/api/backup', async (req, res) => {
+  try {
+    const { description } = req.body || {};
+    const descArg = description ? `'${description}'` : '';
+    const cmd = `/bin/zsh -l -c "cd ${OPENCLAW_DIR}/scripts && ./backup_config.sh ${descArg}" 2>&1`;
+    const output = await execAsync(cmd);
+    
+    res.json({ success: true, message: '备份成功', output: output.substring(0, 1000) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Backup - List (official OpenClaw backups)
+app.get('/api/backups', (req, res) => {
+  try {
+    const backupDir = OPENCLAW_DIR + '/backup';
+    let backups = [];
+    
+    if (fs.existsSync(backupDir)) {
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.startsWith('config_backup_') && (f.endsWith('.tar.gz') || f.endsWith('.zip')))
+        .sort()
+        .reverse()
+        .slice(0, 10); // Latest 10 backups
+      
+      backups = files.map(f => {
+        const stats = fs.statSync(path.join(backupDir, f));
+        // Try to read description from filename
+        const descMatch = f.match(/config_backup_\d{8}_\d{4}(?:_(.*))?\./);
+        const description = descMatch && descMatch[1] ? decodeURIComponent(descMatch[1]) : '';
+        
+        return {
+          name: f,
+          description: description,
+          size: (stats.size / 1024).toFixed(1) + ' KB',
+          created: stats.mtime.toISOString()
+        };
+      });
+    }
+    
+    res.json(backups);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Backup - Details (including changelog)
+app.get('/api/backup/:name/details', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const backupDir = OPENCLAW_DIR + '/backup';
+    const backupFile = path.join(backupDir, name);
+    
+    if (!fs.existsSync(backupFile)) {
+      return res.status(404).json({ error: '备份文件不存在' });
+    }
+    
+    // Extract changelog from backup
+    const changelogCmd = `tar -xzf "${backupFile}" -O "${name.replace('.tar.gz', '')}/CHANGELOG.md" 2>/dev/null || echo "无变更日志"`;
+    let changelog = await execAsync(changelogCmd).catch(() => '无变更日志');
+    
+    // Get file list
+    const listCmd = `tar -tzf "${backupFile}" | head -30`;
+    const fileList = await execAsync(listCmd).catch(() => '');
+    
+    res.json({
+      name,
+      changelog: changelog.substring(0, 2000),
+      fileList: fileList.split('\n').slice(0, 20)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Backup - Restore
+app.post('/api/backup/:name/restore', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const backupDir = OPENCLAW_DIR + '/backup';
+    const backupFile = path.join(backupDir, name);
+    
+    if (!fs.existsSync(backupFile)) {
+      return res.status(404).json({ error: '备份文件不存在' });
+    }
+    
+    // Restore the backup
+    const restoreCmd = `cd "${OPENCLAW_DIR}" && tar -xzf "${backupFile}" -C . 2>&1`;
+    const output = await execAsync(restoreCmd);
+    
+    res.json({ success: true, message: '备份已恢复', output: output.substring(0, 1000) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Config - Save
+app.post('/api/config/save', express.json(), (req, res) => {
+  try {
+    const { id, content } = req.body;
+    
+    if (!id || content === undefined) {
+      return res.status(400).json({ error: '缺少必要参数' });
+    }
+    
+    // Find config path
+    const configs = [
+      { id: 'openclaw.json', path: OPENCLAW_DIR + '/openclaw.json' },
+      { id: 'jobs.json', path: OPENCLAW_DIR + '/jobs.json' },
+      { id: 'AGENTS.md', path: WORKSPACE_DIR + '/AGENTS.md' },
+      { id: 'SOUL.md', path: WORKSPACE_DIR + '/SOUL.md' },
+      { id: 'TOOLS.md', path: WORKSPACE_DIR + '/TOOLS.md' },
+      { id: 'USER.md', path: WORKSPACE_DIR + '/USER.md' },
+      { id: 'MEMORY.md', path: WORKSPACE_DIR + '/MEMORY.md' },
+      { id: 'HEARTBEAT.md', path: WORKSPACE_DIR + '/HEARTBEAT.md' }
+    ];
+    
+    const config = configs.find(c => c.id === id);
+    if (!config) {
+      return res.status(404).json({ error: '未知配置文件' });
+    }
+    
+    // Validate JSON if needed
+    if (id.endsWith('.json')) {
+      try {
+        JSON.parse(content);
+      } catch (e) {
+        return res.status(400).json({ error: 'JSON格式错误: ' + e.message });
+      }
+    }
+    
+    // Save
+    fs.writeFileSync(config.path, content, 'utf8');
+    
+    res.json({ success: true, message: '配置已保存', path: config.path });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Gateway Control
+app.post('/api/gateway/restart', async (req, res) => {
+  try {
+    const output = await execAsync('export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && openclaw gateway restart 2>&1');
+    res.json({ success: true, message: 'Gateway正在重启...', output: output.substring(0, 500) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Doctor Fix
+app.post('/api/doctor/fix', async (req, res) => {
+  try {
+    const output = await execAsync('export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && openclaw doctor fix 2>&1');
+    res.json({ success: true, output: output.substring(0, 5000) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Current Time
+app.get('/api/time', (req, res) => {
+  const now = new Date();
+  const hour = now.getHours();
+  let greeting = '你好';
+  if (hour >= 5 && hour < 9) greeting = '早上好';
+  else if (hour >= 9 && hour < 12) greeting = '上午好';
+  else if (hour >= 12 && hour < 14) greeting = '中午好';
+  else if (hour >= 14 && hour < 18) greeting = '下午好';
+  else if (hour >= 18 && hour < 22) greeting = '晚上好';
+  
+  res.json({
+    time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    date: now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
+    timestamp: now.getTime(),
+    greeting
+  });
+});
+
+// Proxy to official OpenClaw Dashboard (127.0.0.1:18789)
+app.use('/proxy-dashboard', (req, res) => {
+  const targetUrl = 'http://127.0.0.1:18789' + req.url;
+  
+  const proxyReq = http.request(targetUrl, { method: req.method }, (proxyRes) => {
+    let data = '';
+    
+    if (req.url === '/' || req.url === '') {
+      // Rewrite HTML to fix asset paths
+      proxyRes.on('data', chunk => {
+        data += chunk;
+      });
+      
+      proxyRes.on('end', () => {
+        // Fix relative URLs in HTML
+        let rewritten = data
+          .replace(/href="\.\//g, 'href="/proxy-dashboard/')
+          .replace(/src="\.\//g, 'src="/proxy-dashboard/');
+        
+        // Also fix the WebSocket URL
+        rewritten = rewritten.replace(/ws:\/\/127\.0\.0\.1:18789/g, 'ws://127.0.0.1:18789');
+        
+        res.writeHead(proxyRes.statusCode, {
+          ...proxyRes.headers,
+          'Content-Length': Buffer.byteLength(rewritten)
+        });
+        res.end(rewritten);
+      });
+    } else {
+      // Pass through other requests (assets)
+      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+    }
+  });
+  
+  req.pipe(proxyReq, { end: true });
+});
+
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`OpenClaw Dashboard running on http://0.0.0.0:${PORT}`);
+});
