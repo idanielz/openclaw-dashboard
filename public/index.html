@@ -742,8 +742,9 @@
     const configSchemas = {
       'openclaw.json': {
         fields: {
+          // 模型配置
           'agents.defaults.model.primary': { 
-            label: '主模型', 
+            label: '🤖 主模型', 
             type: 'select',
             options: [
               { value: 'minimax-portal/MiniMax-M2.5', label: 'MiniMax M2.5' },
@@ -751,23 +752,60 @@
             ],
             desc: '默认使用的AI模型，会话中优先使用此模型'
           },
+          'agents.defaults.model.fallbacks': { 
+            label: '🔄 备用模型', 
+            type: 'multiselect',
+            options: [
+              { value: 'minimax-portal/MiniMax-M2.5', label: 'MiniMax M2.5' },
+              { value: 'kimi-coding/k2p5', label: 'Kimi for Coding' }
+            ],
+            desc: '主模型失败时使用的备用模型列表'
+          },
+          'agents.defaults.thinkingDefault': { 
+            label: '🧠 思考深度', 
+            type: 'select',
+            options: [
+              { value: 'off', label: '关闭' },
+              { value: 'low', label: '低' },
+              { value: 'medium', label: '中' },
+              { value: 'high', label: '高' }
+            ],
+            desc: '默认思考深度，影响AI推理过程'
+          },
+          'agents.defaults.timeoutSeconds': { 
+            label: '⏱️ 超时时间(秒)', 
+            type: 'number',
+            desc: '单次请求超时时间，默认600秒'
+          },
+          'agents.defaults.maxConcurrent': { 
+            label: '⚡ 最大并发', 
+            type: 'number',
+            desc: '最大并发代理数量，默认1'
+          },
+          // Gateway配置
           'gateway.port': { 
-            label: 'Gateway端口', 
+            label: '🔌 Gateway端口', 
             type: 'number',
             desc: 'Gateway服务端口，默认18789'
           },
           'gateway.bind': { 
-            label: '绑定地址', 
+            label: '🌐 绑定地址', 
             type: 'select',
             options: [
               { value: 'loopback', label: 'loopback (仅本地)' },
               { value: 'lan', label: 'lan (局域网)' },
-              { value: 'auto', label: 'auto (自动)' }
+              { value: 'auto', label: 'auto (自动)' },
+              { value: 'tailnet', label: 'tailnet (Tailscale)' }
             ],
             desc: 'Gateway绑定模式，影响访问范围'
           },
+          'gateway.controlUi.enabled': { 
+            label: '🎛️ 控制面板', 
+            type: 'toggle',
+            desc: '是否启用Web控制面板'
+          },
           'gateway.auth.mode': { 
-            label: '认证模式', 
+            label: '🔐 认证模式', 
             type: 'select',
             options: [
               { value: 'token', label: 'token (令牌)' },
@@ -775,11 +813,59 @@
             ],
             desc: 'Gateway认证方式'
           },
+          'gateway.auth.allowTailscale': { 
+            label: '🛡️ Tailscale免认证', 
+            type: 'toggle',
+            desc: '允许Tailscale身份验证绕过token认证'
+          },
+          // 频道配置
           'channels.telegram.enabled': { 
-            label: 'Telegram启用', 
+            label: '📱 Telegram启用', 
             type: 'toggle',
             desc: '是否启用Telegram频道'
+          },
+          'channels.telegram.dmPolicy': { 
+            label: '📩 Telegram私信策略', 
+            type: 'select',
+            options: [
+              { value: 'pairing', label: '配对模式' },
+              { value: 'allowlist', label: '白名单' },
+              { value: 'allowlist', label: '开放模式' }
+            ],
+            desc: 'Telegram私信处理策略'
+          },
+          // Tools配置
+          'tools.defaults.exec': { 
+            label: '💻 允许执行命令', 
+            type: 'toggle',
+            desc: '是否允许执行Shell命令'
+          },
+          'tools.defaults.browser': { 
+            label: '🌐 允许浏览器操作', 
+            type: 'toggle',
+            desc: '是否允许浏览器自动化'
+          },
+          'tools.defaults.webSearch': { 
+            label: '🔍 允许网络搜索', 
+            type: 'toggle',
+            desc: '是否允许网络搜索功能'
+          },
+          // 会话配置
+          'sessions.contextTokens': { 
+            label: '📝 上下文Token数', 
+            type: 'number',
+            desc: '会话保留的上下文Token数量'
+          },
+          'sessions.autoCompactThreshold': { 
+            label: '🧹 自动压缩阈值', 
+            type: 'number',
+            desc: '触发自动压缩的Token阈值'
           }
+        }
+      },
+      'jobs.json': {
+        fields: {
+          // 这里可以添加定时任务配置的字段
         }
       }
     };
