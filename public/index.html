@@ -583,12 +583,21 @@
 
     async function switchModel(provider, modelId) {
       const primary = provider + '/' + modelId;
+      
+      // Auto-set the other model as fallback
+      let fallbacks = [];
+      if (provider === 'minimax-portal') {
+        fallbacks = ['kimi-coding/k2p5'];
+      } else if (provider === 'kimi-coding') {
+        fallbacks = ['minimax-portal/MiniMax-M2.5'];
+      }
+      
       await fetch(API_BASE + '/api/models/switch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ primary, fallbacks: [] })
+        body: JSON.stringify({ primary, fallbacks })
       });
-      showToast('模型已切换: ' + modelId);
+      showToast('模型已切换: ' + modelId + '\n备用模型: ' + fallbacks.join(', '));
       loadModels();
       toggleModelList();
     }
