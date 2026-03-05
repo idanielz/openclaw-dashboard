@@ -450,9 +450,11 @@ app.get('/api/weather', (req, res) => {
   
   const lat = 39.9042;
   const lon = 116.4074;
-  const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=zh_cn&appid=${WEATHER_TOKEN}`;
+  const currentUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=zh_cn&appid=${WEATHER_TOKEN}`;
+  const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&lang=zh_cn&cnt=8&appid=${WEATHER_TOKEN}`;
   
-  https.get(url, (response) => {
+  // Get current weather
+  https.get(currentUrl, (response) => {
     let data = '';
     response.on('data', chunk => data += chunk);
     response.on('end', () => {
@@ -462,13 +464,52 @@ app.get('/api/weather', (req, res) => {
           res.json({ error: 'Token无效', configNeeded: true });
           return;
         }
-        res.json({
-          temp: Math.round(weather.main?.temp || 0),
-          feels_like: Math.round(weather.main?.feels_like || 0),
-          humidity: weather.main?.humidity || 0,
-          description: weather.weather?.[0]?.description || '',
-          icon: weather.weather?.[0]?.icon || '',
-          city: weather.name || 'Beijing'
+        
+        // Get forecast
+        https.get(forecastUrl, (fcResponse) => {
+          let fcData = '';
+          fcResponse.on('data', chunk => fcData += chunk);
+          fcResponse.on('end', () => {
+            try {
+              const forecast = JSON.parse(fcData);
+              const forecastList = (forecast.list || []).slice(0, 5).map(item => ({
+                time: item.dt_txt.split(' ')[1].substring(0, 5),
+                temp: Math.round(item.main.temp),
+                icon: item.weather?.[0]?.icon || '',
+                desc: item.weather?.[0]?.description || ''
+              }));
+              
+              res.json({
+                temp: Math.round(weather.main?.temp || 0),
+                feels_like: Math.round(weather.main?.feels_like || 0),
+                humidity: weather.main?.humidity || 0,
+                description: weather.weather?.[0]?.description || '',
+                icon: weather.weather?.[0]?.icon || '',
+                city: weather.name || 'Beijing',
+                forecast: forecastList
+              });
+            } catch {
+              res.json({
+                temp: Math.round(weather.main?.temp || 0),
+                feels_like: Math.round(weather.main?.feels_like || 0),
+                humidity: weather.main?.humidity || 0,
+                description: weather.weather?.[0]?.description || '',
+                icon: weather.weather?.[0]?.icon || '',
+                city: weather.name || 'Beijing',
+                forecast: []
+              });
+            }
+          });
+        }).on('error', () => {
+          res.json({
+            temp: Math.round(weather.main?.temp || 0),
+            feels_like: Math.round(weather.main?.feels_like || 0),
+            humidity: weather.main?.humidity || 0,
+            description: weather.weather?.[0]?.description || '',
+            icon: weather.weather?.[0]?.icon || '',
+            city: weather.name || 'Beijing',
+            forecast: []
+          });
         });
       } catch {
         res.json({ error: '解析天气数据失败' });

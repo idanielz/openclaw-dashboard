@@ -73,9 +73,10 @@
     }
     .tab:hover { color: var(--text-primary); }
     .tab.active { background: var(--accent-primary); color: white; }
-    .section { display: none; margin-top: 0; padding-top: 0; }
-    .section.active { display: block; margin-top: 0; }
-    .section:first-of-type { margin-top: 0; }
+    .section { display: none; margin-top: -40px; padding-top: 0; }
+    .section.active { display: block; }
+    #section-dashboard { margin-top: 0; }
+    .section .card:first-child { margin-top: 0; }
     .card {
       background: var(--bg-card); border-radius: var(--radius-lg); padding: 12px;
       margin-bottom: 8px; border: 1px solid var(--border-color);
@@ -161,23 +162,23 @@
     .config-actions { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 10px; }
     .config-editor textarea {
       width: 100%; min-height: 400px; padding: 14px;
-      background: var(--bg-secondary); border: 1px solid var(--border-color);
-      border-radius: var(--radius-md); color: var(--text-primary);
+      background: #0a0a0f; border: 1px solid var(--border-color);
+      border-radius: var(--radius-md); color: #e0e0e0;
       font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6;
       resize: none; box-sizing: border-box;
     }
     
     /* Form Config Styles */
     .view-mode-group { display: flex; gap: 4px; }
-    .view-mode-group .btn { padding: 6px 12px; font-size: 12px; }
-    .view-mode-group .btn.active { background: var(--accent-primary); }
+    .view-mode-group .btn { padding: 8px 16px; font-size: 13px; border: 1px solid var(--accent-primary); background: transparent; color: var(--text-secondary); }
+    .view-mode-group .btn.active { background: var(--accent-primary); color: white; }
     
-    .form-config { padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md); margin-bottom: 12px; }
+    .form-config { padding: 12px; background: #0a0a0f; border-radius: var(--radius-md); margin-bottom: 12px; }
     .form-field { margin-bottom: 16px; }
     .form-label { display: block; font-weight: 500; margin-bottom: 6px; color: var(--text-primary); }
     .form-input, .form-select { 
       width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); 
-      border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-primary);
+      border-radius: var(--radius-sm); background: #0a0a0f; color: #e0e0e0;
       font-size: 13px;
     }
     .form-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
@@ -309,15 +310,32 @@
           <div style="font-size:14px;color:rgba(255,255,255,0.8);" id="datetime-text">--</div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div>
+          <div style="flex:1;">
             <div style="font-size:14px;color:rgba(255,255,255,0.7);">🌤️ 北京天气</div>
-            <div style="font-size:32px;font-weight:700;margin:8px 0;color:#fff;" id="weather-temp">--°</div>
-            <div style="font-size:13px;color:rgba(255,255,255,0.6);" id="weather-desc">加载中...</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:8px;">
-              💧 湿度: <span id="weather-humidity">--</span>% | 体感: <span id="weather-feels">--</span>°
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span style="font-size:48px;font-weight:700;color:#fff;" id="weather-temp">--°</span>
+              <span style="font-size:16px;color:rgba(255,255,255,0.8);" id="weather-desc">加载中...</span>
             </div>
           </div>
           <div style="font-size:48px;" id="weather-icon">⛅</div>
+        </div>
+        <div style="display:flex;justify-content:space-around;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.2);">
+          <div style="text-align:center;">
+            <div style="font-size:12px;color:rgba(255,255,255,0.6);">💧 湿度</div>
+            <div style="font-size:18px;font-weight:600;color:#fff;" id="weather-humidity">--%</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:12px;color:rgba(255,255,255,0.6);">🌡️ 体感</div>
+            <div style="font-size:18px;font-weight:600;color:#fff;" id="weather-feels">--°</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:12px;color:rgba(255,255,255,0.6);">🕐 更新</div>
+            <div style="font-size:14px;font-weight:500;color:#fff;" id="weather-update">--</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.2);">
+          <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:8px;">📅 天气预报</div>
+          <div id="weather-forecast" style="display:flex;justify-content:space-between;"></div>
         </div>
       </div>
       
@@ -350,7 +368,7 @@
     </div>
 
     <!-- Cron -->
-    <div class="section" id="section-cron">
+    <div class="section" id="section-cron" >
       <div class="card">
         <div class="card-header"><span class="card-title">⏰ 定时任务</span></div>
         <div id="cron-list">加载中...</div>
@@ -358,7 +376,7 @@
     </div>
 
     <!-- Sessions -->
-    <div class="section" id="section-sessions">
+    <div class="section" id="section-sessions" >
       <div class="card">
         <div class="card-header"><span class="card-title">💬 会话状态</span></div>
         <div id="sessions-stats" class="session-stats" style="margin-bottom:8px;"></div>
@@ -367,7 +385,7 @@
     </div>
 
     <!-- Skills -->
-    <div class="section" id="section-skills">
+    <div class="section" id="section-skills" >
       <div class="card">
         <div class="card-header"><span class="card-title">🔧 Skills 列表</span></div>
         <div id="skills-list">加载中...</div>
@@ -375,7 +393,7 @@
     </div>
 
     <!-- Logs -->
-    <div class="section" id="section-logs">
+    <div class="section" id="section-logs" >
       <div class="card">
         <div class="log-toolbar">
           <div class="log-filters">
@@ -399,7 +417,7 @@
     </div>
 
     <!-- Config -->
-    <div class="section" id="section-config">
+    <div class="section" id="section-config" >
       <div class="card">
         <div class="card-header"><span class="card-title">⚡ 快捷操作</span></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
@@ -432,7 +450,7 @@
           <button class="btn btn-warning" id="apply-form-btn" style="display:none;" onclick="applyFormChanges()">✓ 应用更改</button>
         </div>
         <div id="config-form-view" style="display:none;"></div>
-        <textarea id="config-content" style="width:100%;min-height:400px;resize:none;"></textarea>
+        <textarea id="config-content" style="width:100%;min-height:400px;resize:none;background:#0a0a0f;color:#e0e0e0;border:1px solid #2d2d3a;"></textarea>
       </div>
     </div>
   </div>
@@ -516,8 +534,21 @@
         document.getElementById('weather-icon').textContent = icons[weatherData.icon] || '⛅';
         document.getElementById('weather-temp').textContent = (weatherData.temp || '--') + '°';
         document.getElementById('weather-desc').textContent = weatherData.description || '--';
-        document.getElementById('weather-humidity').textContent = weatherData.humidity || '--';
-        document.getElementById('weather-feels').textContent = weatherData.feels_like || '--';
+        document.getElementById('weather-humidity').textContent = (weatherData.humidity || '--') + '%';
+        document.getElementById('weather-feels').textContent = (weatherData.feels_like || '--') + '°';
+        document.getElementById('weather-update').textContent = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+        
+        // Render forecast
+        const forecastContainer = document.getElementById('weather-forecast');
+        if (weatherData.forecast && weatherData.forecast.length > 0) {
+          forecastContainer.innerHTML = weatherData.forecast.map(f => `
+            <div style="text-align:center;padding:8px;">
+              <div style="font-size:12px;color:rgba(255,255,255,0.6);">${f.time}</div>
+              <div style="font-size:16px;">${icons[f.icon] || '🌤️'}</div>
+              <div style="font-size:14px;font-weight:600;color:#fff;">${f.temp}°</div>
+            </div>
+          `).join('');
+        }
       } else {
         document.getElementById('weather-temp').textContent = '--°';
         document.getElementById('weather-desc').textContent = '未配置';
