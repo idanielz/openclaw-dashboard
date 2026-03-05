@@ -505,6 +505,10 @@
       loadConfigs();
       showToast('已刷新');
     }
+    
+    // Update time every second
+    setInterval(updateGreeting, 1000);
+    setInterval(loadStatus, 60000);
 
     // Status
     async function loadStatus() {
