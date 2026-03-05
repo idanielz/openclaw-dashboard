@@ -2,6 +2,8 @@
 
 <p align="center">
   <img src="screenshots/overview.jpg" alt="概览" width="100%">
+  <img src="screenshots/chat-desktop.jpg" alt="聊天-桌面端" width="100%">
+  <img src="screenshots/chat-mobile.jpg" alt="聊天-移动端" width="100%">
   <img src="screenshots/cron.jpg" alt="定时任务" width="100%">
   <img src="screenshots/sessions.jpg" alt="会话" width="100%">
   <img src="screenshots/skills.jpg" alt="Skills" width="100%">
@@ -18,6 +20,7 @@
 - **实时日志** - 自动刷新查看 Gateway 运行日志
 - **会话管理** - 查看活跃会话、投递队列、Telegram Bot 状态
 - **Skills 管理** - 浏览已安装/可安装 Skills，支持一键安装
+- **网页聊天** - 支持创建会话、导入 Telegram 会话、持久化聊天记录、重命名/删除
 
 ### 🌤️ 天气组件
 - 实时天气数据（OpenWeatherMap）
