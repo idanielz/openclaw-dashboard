@@ -217,8 +217,10 @@
       margin-bottom: 10px; cursor: pointer; transition: all 0.2s;
     }
     .skill-item:hover { background: var(--bg-card-hover); }
-    .skill-name { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
-    .skill-desc { font-size: 12px; color: var(--text-muted); }
+    .skill-name { font-weight: 600; font-size: 15px; margin-bottom: 4px; color: var(--text-primary); }
+    .skill-desc { font-size: 13px; color: #94a3b8; line-height: 1.5; }
+    .skill-installed { background: var(--accent-success); }
+    .skill-available { background: var(--accent-warning); }
     
     /* Cron */
     .cron-item {
@@ -764,17 +766,72 @@
     async function loadSkills() {
       const data = await api('/api/skills');
       const container = document.getElementById('skills-list');
-      container.innerHTML = (data || []).map(s => `
-        <div class="skill-item">
-          <div style="display:flex;justify-content:space-between;align-items:start;">
-            <div>
+      
+      // Get available skills from clawhub
+      let availableSkills = [];
+      try {
+        const resp = await fetch('https://clawhub.com/api/skills');
+        availableSkills = await resp.json();
+      } catch {}
+      
+      const installedNames = (data || []).map(s => s.name);
+      
+      let html = `
+        <div style="margin-bottom:16px;">
+          <input type="text" id="skill-search" placeholder="搜索Skills..." 
+            style="width:100%;padding:10px 12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);color:var(--text-primary);font-size:14px;margin-bottom:12px;"
+            oninput="filterSkills(this.value)">
+        </div>
+        <div id="skills-installed">
+          <h3 style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">✅ 已安装 (${data?.length || 0})</h3>
+          <div id="installed-list"></div>
+        </div>
+        <div id="skills-available" style="margin-top:20px;">
+          <h3 style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">📦 可安装 (${(availableSkills || []).length})</h3>
+          <div id="available-list"></div>
+        </div>
+      `;
+      
+      container.innerHTML = html;
+      
+      // Render installed
+      document.getElementById('installed-list').innerHTML = (data || []).map(s => `
+        <div class="skill-item skill-installed" data-name="${s.name.toLowerCase()}">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="flex:1;">
               <div class="skill-name">${s.name}</div>
               <div class="skill-desc">${s.description || '暂无描述'}</div>
             </div>
-            <a href="#" onclick="alert('路径: ${s.path}')" style="color:var(--accent-primary);font-size:12px;">📂 查看</a>
+            <span style="background:var(--accent-success);color:white;padding:4px 10px;border-radius:12px;font-size:11px;">已安装</span>
           </div>
         </div>
-      `).join('') || '暂无Skills';
+      `).join('') || '<div style="color:var(--text-muted);font-size:13px;">暂无已安装的Skills</div>';
+      
+      // Render available
+      const available = (availableSkills || []).filter(s => !installedNames.includes(s.name));
+      document.getElementById('available-list').innerHTML = available.map(s => `
+        <div class="skill-item skill-available" data-name="${s.name.toLowerCase()}">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="flex:1;">
+              <div class="skill-name">${s.name}</div>
+              <div class="skill-desc">${s.description || '暂无描述'}</div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="installSkill('${s.repo}')">安装</button>
+          </div>
+        </div>
+      `).join('') || '<div style="color:var(--text-muted);font-size:13px;">暂无可安装的Skills</div>';
+    }
+    
+    function filterSkills(query) {
+      const q = query.toLowerCase();
+      document.querySelectorAll('.skill-item').forEach(item => {
+        const name = item.dataset.name || '';
+        item.style.display = name.includes(q) ? 'block' : 'none';
+      });
+    }
+    
+    async function installSkill(repo) {
+      showToast('安装功能开发中: ' + repo);
     }
 
     // Logs
