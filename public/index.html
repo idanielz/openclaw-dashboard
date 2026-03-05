@@ -253,6 +253,19 @@
 
     <!-- Dashboard -->
     <div class="section active" id="section-dashboard">
+      <div class="card" style="background: linear-gradient(135deg, #1e3a5f, #0f172a); border: 1px solid #1e40af;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;color:var(--text-secondary);">🌤️ 北京天气</div>
+            <div style="font-size:28px;font-weight:700;margin:8px 0;" id="weather-temp">--°</div>
+            <div style="font-size:13px;color:var(--text-secondary);" id="weather-desc">加载中...</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:36px;" id="weather-icon">⛅</div>
+          </div>
+        </div>
+      </div>
+      
       <div class="card">
         <div class="card-header"><span class="card-title">📊 系统状态</span></div>
         <div class="status-grid">
@@ -261,7 +274,7 @@
             <div class="status-value" id="gw-status">--</div>
           </div>
           <div class="status-item">
-            <div class="status-label">版本</div>
+            <div class="status-label">版本 <span id="version-badge" style="display:none;padding:2px 6px;background:var(--accent-warning);color:#000;font-size:10px;border-radius:8px;margin-left:4px;">新!</span></div>
             <div class="status-value" id="version">--</div>
           </div>
           <div class="status-item">
@@ -274,12 +287,6 @@
           </div>
         </div>
       </div>
-      
-      <div class="card">
-        <div class="card-header"><span class="card-title">🤖 模型切换</span></div>
-        <div class="model-current" onclick="toggleModelList()">
-          <div>
-            <div class="model-name" id="current-model-name">--</div>
             <div class="model-detail" id="current-model-detail">点击选择模型</div>
           </div>
           <span class="model-badge" id="current-model-badge">当前</span>
@@ -423,13 +430,37 @@
 
     // Status
     async function loadStatus() {
-      const data = await api('/api/status');
-      if (data.error) return;
-      document.getElementById('gw-status').textContent = data.gatewayStatus === 'running' ? '运行中' : '已停止';
-      document.getElementById('gw-status').className = 'status-value ' + (data.gatewayStatus === 'running' ? 'success' : 'danger');
-      document.getElementById('version').textContent = data.version || '--';
-      document.getElementById('tg-status').textContent = data.channels?.telegram?.enabled ? '已启用' : '未启用';
-      document.getElementById('cron-count').textContent = data.cronJobs || 0;
+      const [statusData, weatherData] = await Promise.all([
+        api('/api/status'),
+        api('/api/weather')
+      ]);
+      
+      if (!statusData.error) {
+        document.getElementById('gw-status').textContent = statusData.gatewayStatus === 'running' ? '运行中' : '已停止';
+        document.getElementById('gw-status').className = 'status-value ' + (statusData.gatewayStatus === 'running' ? 'success' : 'danger');
+        document.getElementById('version').textContent = statusData.version || '--';
+        
+        // Show version update badge
+        if (statusData.updateInfo?.available) {
+          const badge = document.getElementById('version-badge');
+          badge.textContent = 'v' + statusData.updateInfo.version + ' 新!';
+          badge.style.display = 'inline';
+        }
+        
+        document.getElementById('tg-status').textContent = statusData.channels?.telegram?.enabled ? '已启用' : '未启用';
+        document.getElementById('cron-count').textContent = statusData.cronJobs || 0;
+      }
+      
+      // Weather
+      if (!weatherData.error && !weatherData.configNeeded) {
+        const icons = {'01d':'☀️','01n':'🌙','02d':'⛅','02n':'☁️','03d':'☁️','03n':'☁️','04d':'☁️','04n':'☁️','09d':'🌧️','09n':'🌧️','10d':'🌦️','10n':'🌧️','11d':'⛈️','11n':'⛈️','13d':'❄️','13n':'❄️','50d':'🌫️','50n':'🌫️'};
+        document.getElementById('weather-icon').textContent = icons[weatherData.icon] || '⛅';
+        document.getElementById('weather-temp').textContent = (weatherData.temp || '--') + '°';
+        document.getElementById('weather-desc').textContent = weatherData.description || '--';
+      } else {
+        document.getElementById('weather-temp').textContent = '--°';
+        document.getElementById('weather-desc').textContent = '未配置';
+      }
     }
 
     // Models
@@ -501,27 +532,42 @@
     // Sessions
     async function loadSessions() {
       const data = await api('/api/sessions');
-      const summary = data.summary || {};
+      
+      // Show only Telegram bots that have a botId (actual bots)
+      const telegramBots = (data.telegram || []).filter(s => s.botId);
+      const summary = { telegramCount: telegramBots.length };
       
       document.getElementById('sessions-stats').innerHTML = `
-        <div class="session-stat"><div class="session-stat-value success">${summary.activeCount || 0}</div><div class="session-stat-label">活跃投递</div></div>
-        <div class="session-stat"><div class="session-stat-value danger">${summary.failedCount || 0}</div><div class="session-stat-label">失败投递</div></div>
-        <div class="session-stat"><div class="session-stat-value">${summary.telegramCount || 0}</div><div class="session-stat-label">Telegram</div></div>
+        <div class="session-stat"><div class="session-stat-value success">${telegramBots.length}</div><div class="session-stat-label">Telegram Bot</div></div>
+        <div class="session-stat"><div class="session-stat-value">${data.deliveryQueue?.length || 0}</div><div class="session-stat-label">投递队列</div></div>
       `;
       
       let html = '';
-      (data.telegram || []).forEach(s => {
+      telegramBots.forEach(s => {
         html += `<div class="session-item">
           <div class="session-header">
             <span class="session-name">${s.id}</span>
-            <span class="session-badge">Telegram</span>
+            <span class="session-badge">Bot: ${s.botId}</span>
           </div>
           <div class="cron-details">
-            <div class="cron-detail">最后更新: <span>${s.lastUpdate ? new Date(s.lastUpdate).toLocaleString('zh-CN') : '未知'}</span></div>
+            <div class="cron-detail">lastUpdateId: <span>${s.lastUpdateId || '未知'}</span></div>
           </div>
         </div>`;
       });
-      document.getElementById('sessions-list').innerHTML = html || '暂无会话';
+      
+      if (data.deliveryQueue?.length > 0) {
+        html += '<div style="margin-top:16px;font-weight:600;font-size:14px;color:var(--text-secondary);">投递队列</div>';
+        data.deliveryQueue.slice(0, 5).forEach(q => {
+          html += `<div class="session-item">
+            <div class="session-header">
+              <span class="session-name" style="font-size:12px;">${q.id}</span>
+              <span class="session-badge" style="background:var(--accent-warning);">Queue</span>
+            </div>
+          </div>`;
+        });
+      }
+      
+      document.getElementById('sessions-list').innerHTML = html || '暂无Telegram Bot';
     }
 
     // Skills
