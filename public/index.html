@@ -281,12 +281,12 @@
     </header>
 
     <div class="tabs">
-      <button class="tab active" data-tab="dashboard">概览</button>
-      <button class="tab" data-tab="cron">定时任务</button>
-      <button class="tab" data-tab="sessions">会话</button>
-      <button class="tab" data-tab="skills">Skills</button>
-      <button class="tab" data-tab="logs">日志</button>
-      <button class="tab" data-tab="config">配置</button>
+      <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">概览</button>
+      <button class="tab" data-tab="cron" onclick="switchTab('cron')">定时任务</button>
+      <button class="tab" data-tab="sessions" onclick="switchTab('sessions')">会话</button>
+      <button class="tab" data-tab="skills" onclick="switchTab('skills')">Skills</button>
+      <button class="tab" data-tab="logs" onclick="switchTab('logs')">日志</button>
+      <button class="tab" data-tab="config" onclick="switchTab('config')">配置</button>
     </div>
 
     <!-- Dashboard -->
@@ -493,6 +493,14 @@
         if (currentTab === 'logs') loadLogs();
       });
     });
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelector('.tab[data-tab="' + tab + '"]').classList.add('active');
+      document.getElementById('section-' + tab).classList.add('active');
+      if (tab === 'skills') loadSkills();
+    }
 
     async function refreshAll() {
       loadStatus();
