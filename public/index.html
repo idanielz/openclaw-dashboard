@@ -760,74 +760,93 @@
       document.getElementById('sessions-list').innerHTML = html || '暂无会话数据';
     }
 
-    // Skills
+    // Skills - with pagination
+    let skillState = { clawhub: [], awesome: [], installed: [] };
+    let skillPages = { clawhub: 0, awesome: 0 };
+    const PAGE_SIZE = 20;
+
     async function loadSkills() {
-      const [installed, available] = await Promise.all([
+      const [installed, clawhubData, awesomeData] = await Promise.all([
         api('/api/skills'),
-        api('/api/skills/available')
+        fetch('https://clawhub.ai/api/v1/skills?sort=downloads').then(r => r.json()).catch(() => ({items: []})),
+        fetch('https://raw.githubusercontent.com/VoltAgent/awesome-agent-skills/main/README.md').then(r => r.text()).catch(() => '')
       ]);
       
-      const container = document.getElementById('skills-list');
-      const installedNames = (installed || []).map(s => s.name);
+      skillState.installed = installed || [];
+      const installedNames = skillState.installed.map(s => s.name);
+      skillState.clawhub = (clawhubData.items || []).filter(s => !installedNames.includes(s.displayName));
       
-      // Available = all skills in workspace that are NOT installed
-      const availableSkills = (available || []).filter(s => !installedNames.includes(s.name));
+      // Parse Awesome
+      const awesome = [];
+      const lines = awesomeData.split('\n');
+      let section = '';
+      for (const line of lines) {
+        if (line.startsWith('### ')) section = line.replace('### ', '').trim();
+        else if (line.startsWith('- **[') && line.includes('](')) {
+          const m = line.match(/- \*\*\[([^\]]+)\]\([^)]+\)\*\* - (.+)/);
+          if (m && section) awesome.push({name: m[1], description: m[2].trim(), source: section});
+        }
+      }
+      skillState.awesome = awesome;
       
-      let html = `
-        <div style="margin-bottom:16px;">
-          <input type="text" id="skill-search" placeholder="搜索Skills..." 
-            style="width:100%;padding:10px 12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);color:var(--text-primary);font-size:14px;margin-bottom:12px;"
-            oninput="filterSkills(this.value)">
-        </div>
-        <div id="skills-installed">
-          <h3 style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">已安装 (${installed?.length || 0})</h3>
-          <div id="installed-list"></div>
-        </div>
-        <div id="skills-available" style="margin-top:20px;">
-          <h3 style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">可安装 (${availableSkills.length})</h3>
-          <div id="available-list"></div>
-        </div>
-      `;
-      
-      container.innerHTML = html;
-      
-      // Render installed
-      document.getElementById('installed-list').innerHTML = (installed || []).map(s => `
-        <div class="skill-item" data-name="${s.name.toLowerCase()}">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="flex:1;">
-              <div class="skill-name">${s.name}</div>
-              <div class="skill-desc">${s.description || '暂无描述'}</div>
-            </div>
-            <span style="background:var(--bg-secondary);color:var(--text-secondary);padding:4px 10px;border-radius:12px;font-size:11px;border:1px solid var(--border-color);">已安装</span>
-          </div>
-        </div>
-      `).join('') || '<div style="color:var(--text-muted);font-size:13px;">暂无已安装的Skills</div>';
-      
-      // Render available
-      document.getElementById('available-list').innerHTML = availableSkills.map(s => `
-        <div class="skill-item" data-name="${s.name.toLowerCase()}">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="flex:1;">
-              <div class="skill-name">${s.name}</div>
-              <div class="skill-desc">${s.description || '暂无描述'}</div>
-            </div>
-            <button class="btn btn-sm btn-primary" onclick="installSkill('${s.path}')">安装</button>
-          </div>
-        </div>
-      `).join('') || '<div style="color:var(--text-muted);font-size:13px;">暂无可安装的Skills</div>';
+      renderSkills();
     }
     
-    function filterSkills(query) {
-      const q = query.toLowerCase();
+    function renderSkills() {
+      const c = document.getElementById('skills-list');
+      const cl = skillState.clawhub.slice(0, (skillPages.clawhub + 1) * PAGE_SIZE);
+      const al = skillState.awesome.slice(0, (skillPages.awesome + 1) * PAGE_SIZE);
+      
+      c.innerHTML = `
+        <div style="margin-bottom:16px;">
+          <input type="text" id="skill-search" placeholder="搜索Skills..." style="width:100%;padding:10px 12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);color:var(--text-primary);font-size:14px;margin-bottom:12px;" oninput="filterSkills(this.value)">
+        </div>
+        <h3 style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">已安装 (${skillState.installed.length})</h3>
+        <div id="installed-list"></div>
+        <h3 style="font-size:14px;color:var(--text-secondary);margin:20px 0 12px;">可安装 (ClawHub ${skillState.clawhub.length})</h3>
+        <div id="available-list"></div>
+        ${skillState.clawhub.length > cl.length ? '<button class="btn btn-sm" onclick="skillPages.clawhub++;renderSkills()" style="margin-top:12px;width:100%;">加载更多</button>' : ''}
+        <h3 style="font-size:14px;color:var(--text-secondary);margin:20px 0 12px;">Awesome Skills (${skillState.awesome.length})</h3>
+        <div id="awesome-list"></div>
+        ${skillState.awesome.length > al.length ? '<button class="btn btn-sm" onclick="skillPages.awesome++;renderSkills()" style="margin-top:12px;width:100%;">加载更多</button>' : ''}
+      `;
+      
+      document.getElementById('installed-list').innerHTML = skillState.installed.map(s => `<div class="skill-item" data-name="${s.name.toLowerCase()}"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="flex:1;"><div class="skill-name">${s.name}</div><div class="skill-desc">${s.description||''}</div></div><span style="background:var(--bg-secondary);color:var(--text-secondary);padding:4px 10px;border-radius:12px;font-size:11px;border:1px solid var(--border-color);">已安装</span></div></div>`).join('')||'<div style="color:var(--text-muted)">暂无</div>';
+      
+      document.getElementById('available-list').innerHTML = cl.map(s => `<div class="skill-item" data-name="${s.displayName.toLowerCase()}"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="flex:1;"><div class="skill-name">${s.displayName}</div><div class="skill-desc">${s.summary||''}</div><div style="font-size:11px;color:var(--text-muted)">下载:${s.stats?.downloads||0} ⭐${s.stats?.stars||0}</div></div><button class="btn btn-sm btn-primary" onclick="installSkill('${s.slug}')">安装</button></div></div>`).join('')||'<div style="color:var(--text-muted)">暂无</div>';
+      
+      document.getElementById('awesome-list').innerHTML = al.map(s => `<div class="skill-item" data-name="${s.name.toLowerCase()}"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="flex:1;"><div class="skill-name">${s.name}</div><div class="skill-desc">${s.description||''}</div><div style="font-size:11px;color:var(--text-muted)">来源:${s.source}</div></div><button class="btn btn-sm" onclick="showAwesomeSkill('${encodeURIComponent(s.name)}')">查看</button></div></div>`).join('')||'<div style="color:var(--text-muted)">暂无</div>';
+    }
+    
+    function filterSkills(q) {
+      q = q.toLowerCase();
       document.querySelectorAll('.skill-item').forEach(item => {
-        const name = item.dataset.name || '';
-        item.style.display = name.includes(q) ? 'block' : 'none';
+        item.style.display = (item.dataset.name || '').includes(q) ? 'block' : 'none';
       });
     }
     
-    async function installSkill(path) {
-      showToast('安装功能开发中: ' + path);
+    async function installSkill(slug) {
+      if (!confirm('确认安装 Skill: ' + slug + '?')) return;
+      showToast('正在安装: ' + slug + '...');
+      try {
+        const res = await fetch(API_BASE + '/api/skills/install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('安装成功！请重启 Gateway');
+        } else {
+          showToast('安装失败: ' + data.error);
+        }
+      } catch (e) {
+        showToast('安装失败: ' + e.message);
+      }
+    }
+    
+    function showAwesomeSkill(name) {
+      showToast('查看详情: ' + decodeURIComponent(name));
     }
 
     // Logs

@@ -191,6 +191,24 @@ app.get('/api/skills/available', (req, res) => {
   }
 });
 
+// API: Install Skill
+app.post('/api/skills/install', express.json(), async (req, res) => {
+  const { slug } = req.body;
+  if (!slug) {
+    return res.status(400).json({ error: '缺少 slug' });
+  }
+  
+  try {
+    // Use npx clawhub to install
+    const cmd = `cd ${WORKSPACE_DIR} && npx clawhub install ${slug} 2>&1`;
+    const output = await execAsync(cmd);
+    
+    res.json({ success: true, message: '安装完成', output });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // API: Cron Jobs with detailed info
 app.get('/api/cron', (req, res) => {
   try {
