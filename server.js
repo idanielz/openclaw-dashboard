@@ -158,6 +158,39 @@ app.get('/api/skills', (req, res) => {
   }
 });
 
+// API: Available Skills (from workspace/skills)
+app.get('/api/skills/available', (req, res) => {
+  try {
+    const skillsDir = WORKSPACE_DIR + '/skills';
+    const skills = [];
+    
+    if (fs.existsSync(skillsDir)) {
+      const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const skillPath = path.join(skillsDir, entry.name);
+          const skillFile = path.join(skillPath, 'SKILL.md');
+          let description = '';
+          if (fs.existsSync(skillFile)) {
+            const content = fs.readFileSync(skillFile, 'utf8');
+            const descMatch = content.match(/^#\s+(.+)/m);
+            description = descMatch ? descMatch[1] : '';
+          }
+          skills.push({
+            name: entry.name,
+            path: skillPath,
+            description: description
+          });
+        }
+      }
+    }
+    
+    res.json(skills);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // API: Cron Jobs with detailed info
 app.get('/api/cron', (req, res) => {
   try {

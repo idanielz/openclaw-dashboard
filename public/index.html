@@ -219,8 +219,6 @@
     .skill-item:hover { background: var(--bg-card-hover); }
     .skill-name { font-weight: 600; font-size: 15px; margin-bottom: 4px; color: var(--text-primary); }
     .skill-desc { font-size: 13px; color: #94a3b8; line-height: 1.5; }
-    .skill-installed { background: var(--accent-success); }
-    .skill-available { background: var(--accent-warning); }
     
     /* Cron */
     .cron-item {
@@ -764,17 +762,16 @@
 
     // Skills
     async function loadSkills() {
-      const data = await api('/api/skills');
+      const [installed, available] = await Promise.all([
+        api('/api/skills'),
+        api('/api/skills/available')
+      ]);
+      
       const container = document.getElementById('skills-list');
+      const installedNames = (installed || []).map(s => s.name);
       
-      // Get available skills from clawhub
-      let availableSkills = [];
-      try {
-        const resp = await fetch('https://clawhub.com/api/skills');
-        availableSkills = await resp.json();
-      } catch {}
-      
-      const installedNames = (data || []).map(s => s.name);
+      // Available = all skills in workspace that are NOT installed
+      const availableSkills = (available || []).filter(s => !installedNames.includes(s.name));
       
       let html = `
         <div style="margin-bottom:16px;">
@@ -783,11 +780,11 @@
             oninput="filterSkills(this.value)">
         </div>
         <div id="skills-installed">
-          <h3 style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">✅ 已安装 (${data?.length || 0})</h3>
+          <h3 style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">已安装 (${installed?.length || 0})</h3>
           <div id="installed-list"></div>
         </div>
         <div id="skills-available" style="margin-top:20px;">
-          <h3 style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">📦 可安装 (${(availableSkills || []).length})</h3>
+          <h3 style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">可安装 (${availableSkills.length})</h3>
           <div id="available-list"></div>
         </div>
       `;
@@ -795,28 +792,27 @@
       container.innerHTML = html;
       
       // Render installed
-      document.getElementById('installed-list').innerHTML = (data || []).map(s => `
-        <div class="skill-item skill-installed" data-name="${s.name.toLowerCase()}">
+      document.getElementById('installed-list').innerHTML = (installed || []).map(s => `
+        <div class="skill-item" data-name="${s.name.toLowerCase()}">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="flex:1;">
               <div class="skill-name">${s.name}</div>
               <div class="skill-desc">${s.description || '暂无描述'}</div>
             </div>
-            <span style="background:var(--accent-success);color:white;padding:4px 10px;border-radius:12px;font-size:11px;">已安装</span>
+            <span style="background:var(--bg-secondary);color:var(--text-secondary);padding:4px 10px;border-radius:12px;font-size:11px;border:1px solid var(--border-color);">已安装</span>
           </div>
         </div>
       `).join('') || '<div style="color:var(--text-muted);font-size:13px;">暂无已安装的Skills</div>';
       
       // Render available
-      const available = (availableSkills || []).filter(s => !installedNames.includes(s.name));
-      document.getElementById('available-list').innerHTML = available.map(s => `
-        <div class="skill-item skill-available" data-name="${s.name.toLowerCase()}">
+      document.getElementById('available-list').innerHTML = availableSkills.map(s => `
+        <div class="skill-item" data-name="${s.name.toLowerCase()}">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="flex:1;">
               <div class="skill-name">${s.name}</div>
               <div class="skill-desc">${s.description || '暂无描述'}</div>
             </div>
-            <button class="btn btn-sm btn-primary" onclick="installSkill('${s.repo}')">安装</button>
+            <button class="btn btn-sm btn-primary" onclick="installSkill('${s.path}')">安装</button>
           </div>
         </div>
       `).join('') || '<div style="color:var(--text-muted);font-size:13px;">暂无可安装的Skills</div>';
@@ -830,8 +826,8 @@
       });
     }
     
-    async function installSkill(repo) {
-      showToast('安装功能开发中: ' + repo);
+    async function installSkill(path) {
+      showToast('安装功能开发中: ' + path);
     }
 
     // Logs
