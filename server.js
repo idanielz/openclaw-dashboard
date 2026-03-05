@@ -191,14 +191,25 @@ app.get('/api/cron', (req, res) => {
         }
       }
       
-      // 从job.agent或配置中获取模型信息
-      let model = '默认模型';
-      if (job.agent) {
-        model = job.agent;
-      } else if (job.payload?.agent) {
-        model = job.payload.agent;
-      } else if (job.payload?.model) {
-        model = job.payload.model;
+      // 根据任务名称判断任务类型
+      let taskType = '其他任务';
+      const jobName = (job.name || '').toLowerCase();
+      if (jobName.includes('音乐') || jobName.includes('music')) {
+        taskType = '🎵 音乐推荐';
+      } else if (jobName.includes('金价') || jobName.includes('gold')) {
+        taskType = '💰 金价监控';
+      } else if (jobName.includes('天气') || jobName.includes('weather')) {
+        taskType = '🌤️ 天气播报';
+      } else if (jobName.includes('小红书') || jobName.includes('xhs')) {
+        taskType = '📕 小红书';
+      } else if (jobName.includes('签到') || jobName.includes('xmrth')) {
+        taskType = '✍️ 自动签到';
+      } else if (jobName.includes('早安') || jobName.includes('morning')) {
+        taskType = '☀️ 早安资讯';
+      } else if (jobName.includes('晚安') || jobName.includes('night')) {
+        taskType = '🌙 晚安资讯';
+      } else if (jobName.includes('教程') || jobName.includes('tutorial')) {
+        taskType = '📚 技术教程';
       }
       
       // 从state中获取下次执行时间和状态
@@ -211,7 +222,7 @@ app.get('/api/cron', (req, res) => {
         name: job.name || job.id || 'Unknown',
         schedule: scheduleExpr,
         nextRun: nextRun,
-        model: job.agent || '默认模型',
+        taskType: taskType,
         enabled: job.enabled !== false,
         lastRun: lastRunAt,
         lastStatus: lastStatus

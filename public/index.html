@@ -270,8 +270,8 @@
       <!-- Weather -->
       <div class="card" style="background: linear-gradient(135deg, #1e3a5f, #0f172a); border: 1px solid #1e40af;">
         <div style="text-align:center;margin-bottom:12px;">
-          <div style="font-size:20px;font-weight:600;color:#fff;margin-bottom:4px;" id="greeting-text">你好 👋</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.6);" id="datetime-text">--</div>
+          <div style="font-size:28px;font-weight:700;color:#fff;margin-bottom:4px;" id="greeting-text">你好 👋</div>
+          <div style="font-size:14px;color:rgba(255,255,255,0.8);" id="datetime-text">--</div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
@@ -568,7 +568,7 @@
           </div>
           <div class="cron-details">
             <div class="cron-detail">执行时间: <span>${j.schedule}</span></div>
-            <div class="cron-detail">任务类型: <span>${j.model}</span></div>
+            <div class="cron-detail">任务类型: <span>${j.taskType || '其他任务'}</span></div>
             <div class="cron-detail">下次执行: <span>${j.nextRun || '--'}</span></div>
             <div class="cron-detail">上次状态: <span>${j.lastStatus || '--'}</span></div>
           </div>
@@ -658,9 +658,20 @@
         else if (line.includes('warn') || line.includes('Warn') || line.includes('WARNING')) level = 'warn';
         else if (line.includes('[ws]') || line.includes('WS')) level = 'ws';
         
-        // Extract time
+        // Extract and convert time from UTC to local
         const timeMatch = line.match(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z/);
-        const time = timeMatch ? timeMatch[0].replace('T', ' ').substring(0, 19) : '';
+        let time = '';
+        if (timeMatch) {
+          const utcDate = new Date(timeMatch[0]);
+          time = utcDate.toLocaleString('zh-CN', { 
+            month: '2-digit', 
+            day: '2-digit', 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit',
+            hour12: false 
+          });
+        }
         
         return `<div class="log-line">
           <span class="log-time">${time}</span>
