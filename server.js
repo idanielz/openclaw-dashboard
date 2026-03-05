@@ -208,10 +208,10 @@ app.get('/api/cron', (req, res) => {
       
       return {
         id: job.id || 'unknown',
-        name: taskName,
+        name: job.name || job.id || 'Unknown',
         schedule: scheduleExpr,
         nextRun: nextRun,
-        model: model,
+        model: job.agent || '默认模型',
         enabled: job.enabled !== false,
         lastRun: lastRunAt,
         lastStatus: lastStatus
