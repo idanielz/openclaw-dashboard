@@ -299,6 +299,50 @@ app.get('/api/sessions', async (req, res) => {
         };
       });
     }
+    
+    // Get agent sessions (recent conversations)
+    const agentSessions = [];
+    const agentMainDir = OPENCLAW_DIR + '/agents/main/sessions';
+    if (fs.existsSync(agentMainDir)) {
+      const files = fs.readdirSync(agentMainDir)
+        .filter(f => f.endsWith('.jsonl'))
+        .sort((a, b) => {
+          const statA = fs.statSync(path.join(agentMainDir, a));
+          const statB = fs.statSync(path.join(agentMainDir, b));
+          return statB.mtime - statA.mtime;
+        })
+        .slice(0, 10);
+      
+      for (const f of files) {
+        const filePath = path.join(agentMainDir, f);
+        const stat = fs.statSync(filePath);
+        const content = fs.readFileSync(filePath, 'utf8');
+        const lines = content.split('\n').filter(l => l.trim());
+        
+        // Get first and last message for context
+        let firstMsg = null, lastMsg = null, msgCount = lines.length;
+        if (lines.length > 0) {
+          try { firstMsg = JSON.parse(lines[0]); } catch {}
+          try { lastMsg = JSON.parse(lines[lines.length - 1]); } catch {}
+        }
+        
+        // Determine session type from filename
+        const isTopic = f.includes('-topic-');
+        const sessionId = f.replace('.jsonl', '');
+        
+        agentSessions.push({
+          id: sessionId,
+          type: isTopic ? 'topic' : 'dm',
+          file: f,
+          size: stat.size,
+          messages: msgCount,
+          lastUpdate: stat.mtime.toISOString(),
+          firstTimestamp: firstMsg?.timestamp || null,
+          lastTimestamp: lastMsg?.timestamp || null,
+          isDeleted: f.includes('.deleted.')
+        });
+      }
+    }
 
     // Get active sessions from delivery-queue
     const activeSessions = deliveryQueue.filter(s => !s.id.includes('failed'));
@@ -307,10 +351,12 @@ app.get('/api/sessions', async (req, res) => {
     res.json({
       deliveryQueue,
       telegram: telegramSessions,
+      agentSessions,
       summary: {
         activeCount: activeSessions.length,
         failedCount: failedSessions.length,
-        telegramCount: telegramSessions.length
+        telegramCount: telegramSessions.length,
+        agentCount: agentSessions.length
       }
     });
   } catch (error) {

@@ -240,9 +240,12 @@
     .session-badge {
       padding: 2px 8px; font-size: 10px; border-radius: 10px; background: var(--accent-primary); color: white;
     }
+    .session-badge.topic { background: var(--accent-secondary); }
+    .session-badge.deleted { background: var(--accent-danger); }
     .session-stats { display: flex; gap: 12px; }
     .session-stat { text-align: center; }
     .session-stat-value { font-size: 20px; font-weight: 600; }
+    .session-stat-value.warning { color: var(--accent-warning); }
     .session-stat-label { font-size: 11px; color: var(--text-muted); }
     
     .toast {
@@ -619,39 +622,68 @@
       
       // Show only Telegram bots that have a botId (actual bots)
       const telegramBots = (data.telegram || []).filter(s => s.botId);
-      const summary = { telegramCount: telegramBots.length };
       
+      // Summary stats
       document.getElementById('sessions-stats').innerHTML = `
-        <div class="session-stat"><div class="session-stat-value success">${telegramBots.length}</div><div class="session-stat-label">Telegram Bot</div></div>
-        <div class="session-stat"><div class="session-stat-value">${data.deliveryQueue?.length || 0}</div><div class="session-stat-label">投递队列</div></div>
+        <div class="session-stat"><div class="session-stat-value success">${data.agentSessions?.length || 0}</div><div class="session-stat-label">活跃会话</div></div>
+        <div class="session-stat"><div class="session-stat-value">${telegramBots.length}</div><div class="session-stat-label">Telegram Bot</div></div>
+        <div class="session-stat"><div class="session-stat-value warning">${data.summary?.failedCount || 0}</div><div class="session-stat-label">投递失败</div></div>
       `;
       
       let html = '';
-      telegramBots.forEach(s => {
-        html += `<div class="session-item">
-          <div class="session-header">
-            <span class="session-name">${s.id}</span>
-            <span class="session-badge">Bot: ${s.botId}</span>
-          </div>
-          <div class="cron-details">
-            <div class="cron-detail">lastUpdateId: <span>${s.lastUpdateId || '未知'}</span></div>
-          </div>
-        </div>`;
-      });
       
-      if (data.deliveryQueue?.length > 0) {
-        html += '<div style="margin-top:16px;font-weight:600;font-size:14px;color:var(--text-secondary);">投递队列</div>';
-        data.deliveryQueue.slice(0, 5).forEach(q => {
+      // Agent Sessions (conversations)
+      if (data.agentSessions?.length > 0) {
+        html += '<div style="font-weight:600;font-size:14px;color:var(--text-secondary);margin-bottom:8px;">💬 最近会话</div>';
+        data.agentSessions.forEach(s => {
+          const lastTime = s.lastTimestamp ? new Date(s.lastTimestamp).toLocaleString('zh-CN') : '未知';
+          const sizeKB = (s.size / 1024).toFixed(1);
           html += `<div class="session-item">
             <div class="session-header">
-              <span class="session-name" style="font-size:12px;">${q.id}</span>
-              <span class="session-badge" style="background:var(--accent-warning);">Queue</span>
+              <span class="session-name">${s.id.substring(0, 20)}...</span>
+              <span class="session-badge ${s.isDeleted ? 'deleted' : s.type === 'topic' ? 'topic' : ''}">${s.type}</span>
+            </div>
+            <div class="cron-details">
+              <div class="cron-detail">消息数: <span>${s.messages}</span></div>
+              <div class="cron-detail">大小: <span>${sizeKB} KB</span></div>
+              <div class="cron-detail">最后活动: <span>${lastTime}</span></div>
             </div>
           </div>`;
         });
       }
       
-      document.getElementById('sessions-list').innerHTML = html || '暂无Telegram Bot';
+      // Telegram Bots
+      if (telegramBots.length > 0) {
+        html += '<div style="margin-top:16px;font-weight:600;font-size:14px;color:var(--text-secondary);margin-bottom:8px;">📱 Telegram Bots</div>';
+        telegramBots.forEach(s => {
+          html += `<div class="session-item">
+            <div class="session-header">
+              <span class="session-name">${s.id}</span>
+              <span class="session-badge">Bot</span>
+            </div>
+            <div class="cron-details">
+              <div class="cron-detail">Bot ID: <span>${s.botId}</span></div>
+              <div class="cron-detail">Version: <span>${s.version || 1}</span></div>
+              <div class="cron-detail">lastUpdateId: <span>${s.lastUpdateId || '未知'}</span></div>
+            </div>
+          </div>`;
+        });
+      }
+      
+      // Delivery Queue (failed)
+      if (data.summary?.failedCount > 0) {
+        html += '<div style="margin-top:16px;font-weight:600;font-size:14px;color:var(--accent-danger);margin-bottom:8px;">❌ 投递失败队列</div>';
+        data.deliveryQueue.filter(q => q.id.includes('failed')).slice(0, 5).forEach(q => {
+          html += `<div class="session-item" style="border-color:var(--accent-danger);">
+            <div class="session-header">
+              <span class="session-name" style="font-size:12px;">${q.id.substring(0, 30)}...</span>
+              <span class="session-badge" style="background:var(--accent-danger);">Failed</span>
+            </div>
+          </div>`;
+        });
+      }
+      
+      document.getElementById('sessions-list').innerHTML = html || '暂无会话数据';
     }
 
     // Skills
