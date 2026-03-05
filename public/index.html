@@ -415,7 +415,6 @@
         <div class="card-header"><span class="card-title">📁 配置文件</span></div>
         <div class="config-tabs">
           <button class="config-tab active" onclick="switchConfig('openclaw.json', this)">openclaw.json</button>
-          <button class="config-tab" onclick="switchConfig('jobs.json', this)">jobs.json</button>
           <button class="config-tab" onclick="switchConfig('AGENTS.md', this)">AGENTS.md</button>
           <button class="config-tab" onclick="switchConfig('SOUL.md', this)">SOUL.md</button>
           <button class="config-tab" onclick="switchConfig('TOOLS.md', this)">TOOLS.md</button>
@@ -935,11 +934,6 @@
             type: 'number',
             desc: '触发自动压缩的Token阈值'
           }
-        }
-      },
-      'jobs.json': {
-        fields: {
-          // 这里可以添加定时任务配置的字段
         }
       }
     };
