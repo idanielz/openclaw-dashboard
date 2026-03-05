@@ -157,14 +157,15 @@
       border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer;
     }
     .config-tab.active { background: var(--accent-primary); color: white; }
+    .config-actions { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 10px; }
     .config-editor textarea {
-      width: 100%; min-height: 300px; padding: 14px;
+      width: 100%; min-height: 350px; padding: 14px;
       background: #0d1117; border: 1px solid var(--border-color);
       border-radius: var(--radius-md); color: #c9d1d9;
       font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6;
       resize: vertical;
     }
-    .config-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+    .config-editor textarea:focus { outline: none; border-color: var(--accent-primary); }
     
     /* Backup */
     .backup-item {
@@ -253,19 +254,35 @@
 
     <!-- Dashboard -->
     <div class="section active" id="section-dashboard">
+      <!-- Model Selector -->
+      <div class="card" style="background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1)); border: 2px solid var(--accent-primary);">
+        <div class="card-header"><span class="card-title">🤖 当前模型</span></div>
+        <div class="model-current" onclick="toggleModelList()">
+          <div>
+            <div class="model-name" id="current-model-name">--</div>
+            <div class="model-detail" id="current-model-detail">点击选择模型</div>
+          </div>
+          <span class="model-badge" id="current-model-badge">当前</span>
+        </div>
+        <div class="model-list" id="model-list"></div>
+      </div>
+      
+      <!-- Weather -->
       <div class="card" style="background: linear-gradient(135deg, #1e3a5f, #0f172a); border: 1px solid #1e40af;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
-            <div style="font-size:14px;color:var(--text-secondary);">🌤️ 北京天气</div>
-            <div style="font-size:28px;font-weight:700;margin:8px 0;" id="weather-temp">--°</div>
-            <div style="font-size:13px;color:var(--text-secondary);" id="weather-desc">加载中...</div>
+            <div style="font-size:14px;color:rgba(255,255,255,0.7);">🌤️ 北京天气</div>
+            <div style="font-size:32px;font-weight:700;margin:8px 0;color:#fff;" id="weather-temp">--°</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.6);" id="weather-desc">加载中...</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:8px;">
+              💧 湿度: <span id="weather-humidity">--</span>% | 体感: <span id="weather-feels">--</span>°
+            </div>
           </div>
-          <div style="text-align:right;">
-            <div style="font-size:36px;" id="weather-icon">⛅</div>
-          </div>
+          <div style="font-size:48px;" id="weather-icon">⛅</div>
         </div>
       </div>
       
+      <!-- System Status -->
       <div class="card">
         <div class="card-header"><span class="card-title">📊 系统状态</span></div>
         <div class="status-grid">
@@ -287,9 +304,7 @@
           </div>
         </div>
       </div>
-            <div class="model-detail" id="current-model-detail">点击选择模型</div>
-          </div>
-          <span class="model-badge" id="current-model-badge">当前</span>
+    </div>
         </div>
         <div class="model-list" id="model-list"></div>
       </div>
@@ -369,11 +384,11 @@
           <button class="config-tab" onclick="switchConfig('USER.md', this)">USER.md</button>
           <button class="config-tab" onclick="switchConfig('MEMORY.md', this)">MEMORY.md</button>
         </div>
-        <textarea id="config-content" style="min-height:400px;"></textarea>
         <div class="config-actions">
           <button class="btn btn-secondary" onclick="validateConfig()">✓ 验证</button>
           <button class="btn btn-primary" onclick="saveConfig()">💾 保存</button>
         </div>
+        <textarea id="config-content" style="min-height:400px;"></textarea>
       </div>
     </div>
   </div>
@@ -457,6 +472,8 @@
         document.getElementById('weather-icon').textContent = icons[weatherData.icon] || '⛅';
         document.getElementById('weather-temp').textContent = (weatherData.temp || '--') + '°';
         document.getElementById('weather-desc').textContent = weatherData.description || '--';
+        document.getElementById('weather-humidity').textContent = weatherData.humidity || '--';
+        document.getElementById('weather-feels').textContent = weatherData.feels_like || '--';
       } else {
         document.getElementById('weather-temp').textContent = '--°';
         document.getElementById('weather-desc').textContent = '未配置';
@@ -522,8 +539,10 @@
             </div>
           </div>
           <div class="cron-details">
-            <div class="cron-detail">时间: <span>${j.schedule}</span></div>
-            <div class="cron-detail">任务: <span>${j.model}</span></div>
+            <div class="cron-detail">执行时间: <span>${j.schedule}</span></div>
+            <div class="cron-detail">任务类型: <span>${j.model}</span></div>
+            <div class="cron-detail">下次执行: <span>${j.nextRun || '--'}</span></div>
+            <div class="cron-detail">上次状态: <span>${j.lastStatus || '--'}</span></div>
           </div>
         </div>
       `).join('') || '暂无定时任务';
@@ -576,8 +595,13 @@
       const container = document.getElementById('skills-list');
       container.innerHTML = (data || []).map(s => `
         <div class="skill-item">
-          <div class="skill-name">${s.name}</div>
-          <div class="skill-desc">${s.description || '暂无描述'}</div>
+          <div style="display:flex;justify-content:space-between;align-items:start;">
+            <div>
+              <div class="skill-name">${s.name}</div>
+              <div class="skill-desc">${s.description || '暂无描述'}</div>
+            </div>
+            <a href="#" onclick="alert('路径: ${s.path}')" style="color:var(--accent-primary);font-size:12px;">📂 查看</a>
+          </div>
         </div>
       `).join('') || '暂无Skills';
     }
