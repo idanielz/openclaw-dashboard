@@ -97,23 +97,29 @@
     
     /* Model Selector */
     .model-current {
-      padding: 12px 16px; background: var(--bg-secondary); border-radius: var(--radius-md);
+      padding: 16px 20px; background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.1));
+      border: 2px solid var(--accent-primary); border-radius: var(--radius-md);
       display: flex; align-items: center; justify-content: space-between;
-      cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+      cursor: pointer; transition: all 0.2s;
     }
-    .model-current:hover { border-color: var(--accent-primary); }
-    .model-current.active { border-color: var(--accent-primary); background: rgba(99,102,241,0.1); }
-    .model-name { font-weight: 500; font-size: 14px; }
-    .model-detail { font-size: 12px; color: var(--text-muted); }
+    .model-current:hover { background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.2)); }
+    .model-current.active { background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.2)); }
+    .model-badge {
+      padding: 4px 10px; background: var(--accent-primary); color: white;
+      font-size: 10px; font-weight: 600; border-radius: 10px; text-transform: uppercase;
+    }
+    .model-name { font-weight: 600; font-size: 16px; }
+    .model-detail { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
     .model-list { display: none; flex-direction: column; gap: 8px; margin-top: 12px; }
     .model-list.show { display: flex; }
     .model-item {
-      padding: 12px 16px; background: var(--bg-secondary); border-radius: var(--radius-md);
+      padding: 14px 18px; background: var(--bg-secondary); border-radius: var(--radius-md);
       cursor: pointer; display: flex; align-items: center; justify-content: space-between;
-      transition: all 0.2s;
+      transition: all 0.2s; border: 2px solid transparent;
     }
-    .model-item:hover { background: var(--bg-card-hover); }
-    .model-item.active { border: 2px solid var(--accent-primary); background: rgba(99,102,241,0.1); }
+    .model-item:hover { background: var(--bg-card-hover); border-color: var(--accent-primary); }
+    .model-item.active { border: 2px solid var(--accent-success); background: rgba(16,185,129,0.1); }
+    .model-check { color: var(--accent-success); font-size: 18px; }
     
     /* Log Viewer */
     .log-toolbar {
@@ -270,13 +276,13 @@
       </div>
       
       <div class="card">
-        <div class="card-header"><span class="card-title">🤖 当前模型</span></div>
+        <div class="card-header"><span class="card-title">🤖 模型切换</span></div>
         <div class="model-current" onclick="toggleModelList()">
           <div>
             <div class="model-name" id="current-model-name">--</div>
-            <div class="model-detail" id="current-model-detail">点击切换模型</div>
+            <div class="model-detail" id="current-model-detail">点击选择模型</div>
           </div>
-          <span>▼</span>
+          <span class="model-badge" id="current-model-badge">当前</span>
         </div>
         <div class="model-list" id="model-list"></div>
       </div>
@@ -335,9 +341,10 @@
     <div class="section" id="section-config">
       <div class="card">
         <div class="card-header"><span class="card-title">⚡ 快捷操作</span></div>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
-          <button class="btn btn-primary" onclick="createBackup()">💾 备份配置</button>
-          <button class="btn btn-secondary" onclick="restartGateway()">🔄 重启Gateway</button>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <button class="btn btn-primary" onclick="createBackup()">💾 备份</button>
+          <button class="btn btn-secondary" onclick="restartGateway()">🔄 重启</button>
+          <button class="btn btn-secondary" onclick="runDoctorFix()">🩺 Doctor</button>
         </div>
       </div>
       <div class="card">
@@ -349,11 +356,16 @@
         <div class="config-tabs">
           <button class="config-tab active" onclick="switchConfig('openclaw.json', this)">openclaw.json</button>
           <button class="config-tab" onclick="switchConfig('jobs.json', this)">jobs.json</button>
+          <button class="config-tab" onclick="switchConfig('AGENTS.md', this)">AGENTS.md</button>
+          <button class="config-tab" onclick="switchConfig('SOUL.md', this)">SOUL.md</button>
+          <button class="config-tab" onclick="switchConfig('TOOLS.md', this)">TOOLS.md</button>
+          <button class="config-tab" onclick="switchConfig('USER.md', this)">USER.md</button>
+          <button class="config-tab" onclick="switchConfig('MEMORY.md', this)">MEMORY.md</button>
         </div>
-        <textarea id="config-content"></textarea>
+        <textarea id="config-content" style="min-height:400px;"></textarea>
         <div class="config-actions">
-          <button class="btn btn-secondary" onclick="validateConfig()">验证</button>
-          <button class="btn btn-primary" onclick="saveConfig()">保存</button>
+          <button class="btn btn-secondary" onclick="validateConfig()">✓ 验证</button>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 保存</button>
         </div>
       </div>
     </div>
@@ -438,9 +450,9 @@
             <div class="model-item ${isActive ? 'active' : ''}" onclick="switchModel('${provider}', '${model.id}')">
               <div>
                 <div class="model-name">${model.name}</div>
-                <div class="model-detail">${provider}</div>
+                <div class="model-detail">${provider} · ${(model.contextWindow / 1000).toFixed(0)}K</div>
               </div>
-              ${isActive ? '<span>✓</span>' : ''}
+              ${isActive ? '<span class="model-check">✓</span>' : ''}
             </div>
           `;
         }
@@ -534,7 +546,7 @@
       const filterParam = filter ? `&filter=${encodeURIComponent(filter)}` : '';
       const data = await api(`/api/logs?lines=200&file=${file}${filterParam}`);
       
-      logData = (data.content || '').split('\n').filter(l => l.trim());
+      logData = (data.content || '').split('\n').filter(l => l.trim()).reverse();
       renderLogs();
     }
 
@@ -668,6 +680,18 @@
       const res = await fetch(API_BASE + '/api/gateway/restart', { method: 'POST' });
       const data = await res.json();
       showToast(data.success ? 'Gateway正在重启...' : '重启失败');
+    }
+
+    async function runDoctorFix() {
+      if (!confirm('确定要运行Doctor Fix吗？')) return;
+      showToast('正在执行Doctor Fix...');
+      const res = await fetch(API_BASE + '/api/doctor/fix', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        alert('Doctor Fix 完成\n\n' + (data.output || '').substring(0, 2000));
+      } else {
+        showToast('Doctor Fix失败: ' + data.error);
+      }
     }
 
     // Init
