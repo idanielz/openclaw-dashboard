@@ -532,7 +532,6 @@ app.get('/api/configs', (req, res) => {
   try {
     const configs = [
       { id: 'openclaw.json', name: 'OpenClaw 主配置', path: OPENCLAW_DIR + '/openclaw.json' },
-      { id: 'jobs.json', name: '定时任务配置', path: OPENCLAW_DIR + '/jobs.json' },
       { id: 'AGENTS.md', name: 'Agent配置', path: WORKSPACE_DIR + '/AGENTS.md' },
       { id: 'SOUL.md', name: '身份配置', path: WORKSPACE_DIR + '/SOUL.md' },
       { id: 'TOOLS.md', name: '工具配置', path: WORKSPACE_DIR + '/TOOLS.md' },
@@ -705,6 +704,46 @@ app.post('/api/config/save', express.json(), (req, res) => {
     fs.writeFileSync(config.path, content, 'utf8');
     
     res.json({ success: true, message: '配置已保存', path: config.path });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Cron Job - Update
+app.post('/api/cron/update', express.json(), (req, res) => {
+  try {
+    const { jobId, updates } = req.body;
+    
+    if (!jobId || !updates) {
+      return res.status(400).json({ error: '缺少必要参数' });
+    }
+    
+    const jobsPath = OPENCLAW_DIR + '/jobs.json';
+    const jobsData = JSON.parse(readFile(jobsPath) || '{}');
+    const jobs = jobsData.jobs || [];
+    
+    const jobIndex = jobs.findIndex(j => j.id === jobId);
+    if (jobIndex === -1) {
+      return res.status(404).json({ error: '未找到定时任务' });
+    }
+    
+    // Apply updates
+    if (updates.enabled !== undefined) jobs[jobIndex].enabled = updates.enabled;
+    if (updates.name !== undefined) jobs[jobIndex].name = updates.name;
+    if (updates.schedule !== undefined) {
+      jobs[jobIndex].schedule = {
+        kind: 'cron',
+        expr: updates.schedule,
+        tz: 'Asia/Shanghai'
+      };
+    }
+    if (updates.sessionTarget !== undefined) jobs[jobIndex].sessionTarget = updates.sessionTarget;
+    if (updates.wakeMode !== undefined) jobs[jobIndex].wakeMode = updates.wakeMode;
+    
+    // Save
+    writeFile(jobsPath, JSON.stringify(jobsData, null, 2));
+    
+    res.json({ success: true, message: '定时任务已更新' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

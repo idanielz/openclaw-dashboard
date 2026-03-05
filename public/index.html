@@ -611,18 +611,51 @@
           <div class="cron-header">
             <span class="cron-name">${j.name || j.id}</span>
             <div class="cron-status">
-              <div class="cron-dot ${j.enabled ? '' : 'stopped'}"></div>
-              <span>${j.enabled ? '运行中' : '已停止'}</span>
+              <label class="toggle" title="启用/禁用">
+                <input type="checkbox" ${j.enabled ? 'checked' : ''} onchange="toggleCronJob('${j.id}', this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
             </div>
           </div>
           <div class="cron-details">
-            <div class="cron-detail">执行时间: <span>${j.schedule}</span></div>
+            <div class="cron-detail" style="display:flex;align-items:center;gap:8px;">
+              <span>执行时间:</span>
+              <input type="text" class="cron-input" value="${j.schedule}" 
+                onchange="updateCronField('${j.id}', 'schedule', this.value)" 
+                style="width:120px;padding:4px 8px;font-size:12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px);color:var(--text-primary);">
+            </div>
+            <div class="cron-detail" style="display:flex;align-items:center;gap:8px;">
+              <span>会话目标:</span>
+              <input type="text" class="cron-input" value="${j.sessionTarget || 'main'}" 
+                onchange="updateCronField('${j.id}', 'sessionTarget', this.value)"
+                style="width:80px;padding:4px 8px;font-size:12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px;color:var(--text-primary);">
+            </div>
             <div class="cron-detail">任务类型: <span>${j.taskType || '其他任务'}</span></div>
             <div class="cron-detail">下次执行: <span>${j.nextRun || '--'}</span></div>
             <div class="cron-detail">上次状态: <span>${j.lastStatus || '--'}</span></div>
           </div>
         </div>
       `).join('') || '暂无定时任务';
+    }
+    
+    async function toggleCronJob(jobId, enabled) {
+      const res = await fetch(API_BASE + '/api/cron/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, updates: { enabled } })
+      });
+      const data = await res.json();
+      showToast(data.success ? (enabled ? '定时任务已启用' : '定时任务已禁用') : '更新失败');
+    }
+    
+    async function updateCronField(jobId, field, value) {
+      const res = await fetch(API_BASE + '/api/cron/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, updates: { [field]: value } })
+      });
+      const data = await res.json();
+      showToast(data.success ? '已更新' : '更新失败');
     }
 
     // Sessions
