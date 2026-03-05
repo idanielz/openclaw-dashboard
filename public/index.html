@@ -281,12 +281,12 @@
     </header>
 
     <div class="tabs">
-      <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">概览</button>
-      <button class="tab" data-tab="cron" onclick="switchTab('cron')">定时任务</button>
-      <button class="tab" data-tab="sessions" onclick="switchTab('sessions')">会话</button>
-      <button class="tab" data-tab="skills" onclick="switchTab('skills')">Skills</button>
-      <button class="tab" data-tab="logs" onclick="switchTab('logs')">日志</button>
-      <button class="tab" data-tab="config" onclick="switchTab('config')">配置</button>
+      <button class="tab active" data-tab="dashboard">概览</button>
+      <button class="tab" data-tab="cron">定时任务</button>
+      <button class="tab" data-tab="sessions">会话</button>
+      <button class="tab" data-tab="skills">Skills</button>
+      <button class="tab" data-tab="logs">日志</button>
+      <button class="tab" data-tab="config">配置</button>
     </div>
 
     <!-- Dashboard -->
@@ -494,14 +494,6 @@
       });
     });
 
-    function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-      document.querySelector('.tab[data-tab="' + tab + '"]').classList.add('active');
-      document.getElementById('section-' + tab).classList.add('active');
-      if (tab === 'skills') loadSkills();
-    }
-
     async function refreshAll() {
       loadStatus();
       loadModels();
@@ -545,7 +537,7 @@
         document.getElementById('weather-desc').textContent = weatherData.description || '--';
         document.getElementById('weather-humidity').textContent = (weatherData.humidity || '--') + '%';
         document.getElementById('weather-feels').textContent = (weatherData.feels_like || '--') + '°';
-        document.getElementById('weather-update').textContent = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        document.getElementById('weather-update').textContent = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
         
         // Render forecast
         const forecastContainer = document.getElementById('weather-forecast');
@@ -584,7 +576,7 @@
       document.getElementById('greeting-text').textContent = greeting + ' ' + emoji;
       
       const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-      const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
       document.getElementById('datetime-text').textContent = dateStr + ' ' + timeStr;
     }
 
@@ -768,7 +760,7 @@
       document.getElementById('sessions-list').innerHTML = html || '暂无会话数据';
     }
 
-    // Skills - infinite scroll
+    // Skills - with pagination
     let skillState = { clawhub: [], awesome: [], installed: [] };
     let skillPages = { clawhub: 0, awesome: 0 };
     const PAGE_SIZE = 20;
@@ -798,25 +790,6 @@
       skillState.awesome = awesome;
       
       renderSkills();
-      
-      // Setup infinite scroll
-      setupInfiniteScroll();
-    }
-    
-    function setupInfiniteScroll() {
-      const container = document.getElementById('skills-list');
-      container.onscroll = function() {
-        const scrollHeight = this.scrollHeight;
-        const scrollTop = this.scrollTop;
-        const clientHeight = this.clientHeight;
-        
-        // ClawHub infinite scroll
-        const cl = skillState.clawhub.slice(0, (skillPages.clawhub + 1) * PAGE_SIZE);
-        if (scrollTop + clientHeight >= scrollHeight - 100 && skillState.clawhub.length > cl.length) {
-          skillPages.clawhub++;
-          renderSkills();
-        }
-      };
     }
     
     function renderSkills() {
@@ -832,9 +805,10 @@
         <div id="installed-list"></div>
         <h3 style="font-size:14px;color:var(--text-secondary);margin:20px 0 12px;">可安装 (ClawHub ${skillState.clawhub.length})</h3>
         <div id="available-list"></div>
+        ${skillState.clawhub.length > cl.length ? '<button class="btn btn-sm" onclick="skillPages.clawhub++;renderSkills()" style="margin-top:12px;width:100%;">加载更多</button>' : ''}
         <h3 style="font-size:14px;color:var(--text-secondary);margin:20px 0 12px;">Awesome Skills (${skillState.awesome.length})</h3>
         <div id="awesome-list"></div>
-      `;
+        ${skillState.awesome.length > al.length ? '<button class="btn btn-sm" onclick="skillPages.awesome++;renderSkills()" style="margin-top:12px;width:100%;">加载更多</button>' : ''}
       `;
       
       document.getElementById('installed-list').innerHTML = skillState.installed.map(s => `<div class="skill-item" data-name="${s.name.toLowerCase()}"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="flex:1;"><div class="skill-name">${s.name}</div><div class="skill-desc">${s.description||''}</div></div><span style="background:var(--bg-secondary);color:var(--text-secondary);padding:4px 10px;border-radius:12px;font-size:11px;border:1px solid var(--border-color);">已安装</span></div></div>`).join('')||'<div style="color:var(--text-muted)">暂无</div>';
