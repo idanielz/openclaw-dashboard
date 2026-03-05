@@ -150,7 +150,7 @@
     .log-level.ws { color: var(--accent-success); }
     
     /* Config */
-    .config-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .config-tabs { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
     .config-tab {
       padding: 6px 12px; font-size: 12px;
       background: var(--bg-secondary); border: 1px solid var(--border-color);
@@ -360,7 +360,7 @@
     <div class="section" id="section-sessions">
       <div class="card">
         <div class="card-header"><span class="card-title">💬 会话状态</span></div>
-        <div id="sessions-stats" class="session-stats" style="margin-bottom:16px;"></div>
+        <div id="sessions-stats" class="session-stats" style="margin-bottom:8px;"></div>
         <div id="sessions-list">加载中...</div>
       </div>
     </div>
@@ -390,7 +390,7 @@
             <button class="btn btn-sm btn-primary" onclick="loadLogs()">刷新</button>
           </div>
         </div>
-        <input type="text" id="log-search" placeholder="搜索关键词..." style="width:100%;margin-bottom:12px;" oninput="loadLogs()" />
+        <input type="text" id="log-search" placeholder="搜索关键词..." style="width:100%;margin-bottom:8px;" oninput="loadLogs()" />
         <div class="log-container" id="log-container">
           <div class="log-line"><span class="log-time">加载中...</span></div>
         </div>
