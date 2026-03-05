@@ -159,11 +159,11 @@
     .config-tab.active { background: var(--accent-primary); color: white; }
     .config-actions { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 10px; }
     .config-editor textarea {
-      width: 100%; min-height: 350px; padding: 14px;
-      background: #0d1117; border: 1px solid var(--border-color);
-      border-radius: var(--radius-md); color: #c9d1d9;
+      width: 100%; min-height: 400px; padding: 14px;
+      background: var(--bg-secondary); border: 1px solid var(--border-color);
+      border-radius: var(--radius-md); color: var(--text-primary);
       font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6;
-      resize: vertical;
+      resize: none; box-sizing: border-box;
     }
     .config-editor textarea:focus { outline: none; border-color: var(--accent-primary); }
     
@@ -392,7 +392,7 @@
           <button class="btn btn-secondary" onclick="validateConfig()">✓ 验证</button>
           <button class="btn btn-primary" onclick="saveConfig()">💾 保存</button>
         </div>
-        <textarea id="config-content" style="min-height:400px;"></textarea>
+        <textarea id="config-content" style="width:100%;min-height:400px;resize:none;"></textarea>
       </div>
     </div>
   </div>

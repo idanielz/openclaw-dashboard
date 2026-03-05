@@ -191,32 +191,14 @@ app.get('/api/cron', (req, res) => {
         }
       }
       
-      // 从payload中提取任务信息
-      let taskName = job.name || job.id || 'Unknown';
-      let model = '默认任务';
-      
-      const jobName = (job.name || '').toLowerCase();
-      const payloadText = JSON.stringify(job.payload || {}).toLowerCase();
-      
-      // 根据任务名称和payload判断任务类型
-      if (jobName.includes('gold') || jobName.includes('金价') || payloadText.includes('金价')) {
-        model = '💰 金价监控';
-      } else if (jobName.includes('weather') || jobName.includes('天气') || payloadText.includes('天气')) {
-        model = '🌤️ 天气';
-      } else if (jobName.includes('music') || jobName.includes('音乐')) {
-        model = '🎵 音乐推荐';
-      } else if (jobName.includes('xhs') || jobName.includes('xiaohongshu') || jobName.includes('小红书')) {
-        model = '📕 小红书';
-      } else if (jobName.includes('morning') || jobName.includes('早安')) {
-        model = '☀️ 早安资讯';
-      } else if (jobName.includes('night') || jobName.includes('晚安')) {
-        model = '🌙 晚安资讯';
-      } else if (jobName.includes('xmrth') || jobName.includes('签到')) {
-        model = '✍️ 签到任务';
-      } else if (jobName.includes('tutorial') || jobName.includes('教程')) {
-        model = '📚 技术教程';
-      } else if (jobName.includes('movie') || jobName.includes('电影')) {
-        model = '🎬 电影推荐';
+      // 从job.agent或配置中获取模型信息
+      let model = '默认模型';
+      if (job.agent) {
+        model = job.agent;
+      } else if (job.payload?.agent) {
+        model = job.payload.agent;
+      } else if (job.payload?.model) {
+        model = job.payload.model;
       }
       
       // 从state中获取下次执行时间和状态
