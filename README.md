@@ -1,7 +1,10 @@
 # 🦞 小虾米 - OpenClaw 管理面板
 
 <p align="center">
-  <img src="screenshot.png" alt="Dashboard Preview" width="100%">
+  <img src="screenshots/overview.jpg" alt="概览" width="100%">
+  <img src="screenshots/cron.jpg" alt="定时任务" width="100%">
+  <img src="screenshots/sessions.jpg" alt="会话" width="100%">
+  <img src="screenshots/skills.jpg" alt="Skills" width="100%">
 </p>
 
 一个美观、实用的 OpenClaw Web 管理面板，支持模型切换、定时任务管理、配置编辑、实时日志查看等功能。
@@ -14,6 +17,7 @@
 - **配置编辑** - JSON/表单两种模式，支持配置验证和保存
 - **实时日志** - 自动刷新查看 Gateway 运行日志
 - **会话管理** - 查看活跃会话、投递队列、Telegram Bot 状态
+- **Skills 管理** - 浏览已安装/可安装 Skills，支持一键安装
 
 ### 🌤️ 天气组件
 - 实时天气数据（OpenWeatherMap）
