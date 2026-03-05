@@ -537,7 +537,7 @@
         document.getElementById('weather-desc').textContent = weatherData.description || '--';
         document.getElementById('weather-humidity').textContent = (weatherData.humidity || '--') + '%';
         document.getElementById('weather-feels').textContent = (weatherData.feels_like || '--') + '°';
-        document.getElementById('weather-update').textContent = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+        document.getElementById('weather-update').textContent = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
         
         // Render forecast
         const forecastContainer = document.getElementById('weather-forecast');
@@ -576,7 +576,7 @@
       document.getElementById('greeting-text').textContent = greeting + ' ' + emoji;
       
       const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-      const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       document.getElementById('datetime-text').textContent = dateStr + ' ' + timeStr;
     }
 
