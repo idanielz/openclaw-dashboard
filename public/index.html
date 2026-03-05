@@ -269,6 +269,10 @@
       
       <!-- Weather -->
       <div class="card" style="background: linear-gradient(135deg, #1e3a5f, #0f172a); border: 1px solid #1e40af;">
+        <div style="text-align:center;margin-bottom:12px;">
+          <div style="font-size:18px;font-weight:600;color:#fff;" id="greeting-text">你好 👋</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px;" id="datetime-text">--</div>
+        </div>
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
             <div style="font-size:14px;color:rgba(255,255,255,0.7);">🌤️ 北京天气</div>
@@ -388,7 +392,7 @@
           <button class="btn btn-secondary" onclick="validateConfig()">✓ 验证</button>
           <button class="btn btn-primary" onclick="saveConfig()">💾 保存</button>
         </div>
-        <textarea id="config-content" style="min-height:400px;"></textarea>
+        <textarea id="config-content" style="width:100%;min-height:400px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:14px;color:var(--text-primary);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;"></textarea>
       </div>
     </div>
   </div>
@@ -470,14 +474,41 @@
       if (!weatherData.error && !weatherData.configNeeded) {
         const icons = {'01d':'☀️','01n':'🌙','02d':'⛅','02n':'☁️','03d':'☁️','03n':'☁️','04d':'☁️','04n':'☁️','09d':'🌧️','09n':'🌧️','10d':'🌦️','10n':'🌧️','11d':'⛈️','11n':'⛈️','13d':'❄️','13n':'❄️','50d':'🌫️','50n':'🌫️'};
         document.getElementById('weather-icon').textContent = icons[weatherData.icon] || '⛅';
-        document.getElementById('weather-temp').textContent = (weatherData.temp || '--') + '°';
+        // Handle 0 temp (API might return 0 for some reason, still display it)
+        const temp = weatherData.temp !== undefined ? weatherData.temp : '--';
+        const feelsLike = weatherData.feels_like !== undefined ? weatherData.feels_like : '--';
+        document.getElementById('weather-temp').textContent = temp + '°';
         document.getElementById('weather-desc').textContent = weatherData.description || '--';
-        document.getElementById('weather-humidity').textContent = weatherData.humidity || '--';
-        document.getElementById('weather-feels').textContent = weatherData.feels_like || '--';
+        document.getElementById('weather-humidity').textContent = weatherData.humidity !== undefined ? weatherData.humidity : '--';
+        document.getElementById('weather-feels').textContent = feelsLike;
       } else {
         document.getElementById('weather-temp').textContent = '--°';
         document.getElementById('weather-desc').textContent = '未配置';
       }
+      
+      // Update greeting and datetime
+      updateGreeting();
+    }
+    
+    function updateGreeting() {
+      const now = new Date();
+      const hour = now.getHours();
+      let greeting = '你好';
+      let emoji = '👋';
+      
+      if (hour >= 5 && hour < 9) { greeting = '早上好'; emoji = '🌅'; }
+      else if (hour >= 9 && hour < 12) { greeting = '上午好'; emoji = '☀️'; }
+      else if (hour >= 12 && hour < 14) { greeting = '中午好'; emoji = '🍜'; }
+      else if (hour >= 14 && hour < 15) { greeting = '下午茶时间'; emoji = '☕'; }
+      else if (hour >= 15 && hour < 18) { greeting = '下午好'; emoji = '🌤️'; }
+      else if (hour >= 18 && hour < 22) { greeting = '晚上好'; emoji = '🌙'; }
+      else { greeting = '夜深了'; emoji = '🌃'; }
+      
+      document.getElementById('greeting-text').textContent = greeting + ' ' + emoji;
+      
+      const dateStr = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+      const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      document.getElementById('datetime-text').textContent = dateStr + ' ' + timeStr;
     }
 
     // Models
@@ -529,7 +560,16 @@
     async function loadCron() {
       const data = await api('/api/cron');
       const container = document.getElementById('cron-list');
-      container.innerHTML = (data || []).map(j => `
+      container.innerHTML = (data || []).map(j => {
+        // Get model from job if available, otherwise show 'default'
+        let modelDisplay = j.model || 'default';
+        // Check if it's a full model path
+        if (modelDisplay.includes('/')) {
+          const parts = modelDisplay.split('/');
+          modelDisplay = parts[parts.length - 1];
+        }
+        
+        return `
         <div class="cron-item">
           <div class="cron-header">
             <span class="cron-name">${j.name || j.id}</span>
@@ -540,12 +580,24 @@
           </div>
           <div class="cron-details">
             <div class="cron-detail">执行时间: <span>${j.schedule}</span></div>
-            <div class="cron-detail">任务类型: <span>${j.model}</span></div>
+            <div class="cron-detail" style="cursor:pointer;color:var(--accent-primary);" onclick="switchCronModel('${j.id}', '${modelDisplay}')">
+              使用模型: <span>${modelDisplay}</span> ↻
+            </div>
             <div class="cron-detail">下次执行: <span>${j.nextRun || '--'}</span></div>
             <div class="cron-detail">上次状态: <span>${j.lastStatus || '--'}</span></div>
           </div>
         </div>
-      `).join('') || '暂无定时任务';
+      `;
+      }).join('') || '暂无定时任务';
+    }
+    
+    function switchCronModel(jobId, currentModel) {
+      const models = ['MiniMax-M2.5', 'k2p5'];
+      const newModel = prompt(`切换 ${jobId} 的模型\n当前: ${currentModel}\n可选: ${models.join(', ')}`, currentModel);
+      if (newModel && newModel !== currentModel) {
+        showToast('模型切换功能需要在后端实现: ' + newModel);
+      }
+    }
     }
 
     // Sessions
