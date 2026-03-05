@@ -4,12 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OpenClaw Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-primary: #0a0a0f;
       --bg-secondary: #12121a;
       --bg-card: #1a1a24;
+      --bg-card-hover: #222230;
       --accent-primary: #6366f1;
+      --accent-secondary: #8b5cf6;
       --accent-success: #10b981;
       --accent-warning: #f59e0b;
       --accent-danger: #ef4444;
@@ -17,41 +20,63 @@
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
       --border-color: #2d2d3a;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg-primary);
       color: var(--text-primary);
       min-height: 100vh;
     }
-    .container { max-width: 800px; margin: 0 auto; padding: 16px; }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 20% 20%, rgba(99,102,241,0.15), transparent 50%),
+                  radial-gradient(ellipse at 80% 80%, rgba(139,92,246,0.1), transparent 50%);
+      pointer-events: none;
+      z-index: -1;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 16px; padding-bottom: 80px; }
     .header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 0; margin-bottom: 20px;
-      border-bottom: 1px solid var(--border-color);
+      padding: 16px 0; margin-bottom: 20px; border-bottom: 1px solid var(--border-color);
     }
+    .header-left { display: flex; align-items: center; gap: 12px; }
     .logo {
       width: 40px; height: 40px;
-      background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
-      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
       font-weight: 700; font-size: 18px;
     }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .btn {
+      padding: 8px 16px; border-radius: var(--radius-sm); border: none;
+      cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s;
+    }
+    .btn-primary { background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: white; }
+    .btn-secondary { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-color); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-icon { width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer; }
     .tabs {
-      display: flex; gap: 4px; background: var(--bg-secondary);
-      padding: 4px; border-radius: 12px; margin-bottom: 20px;
-      overflow-x: auto;
+      display: flex; gap: 4px; background: var(--bg-secondary); padding: 4px;
+      border-radius: var(--radius-md); margin-bottom: 20px; overflow-x: auto;
     }
     .tab {
-      padding: 10px 16px; font-size: 13px; font-weight: 500;
-      color: var(--text-secondary); background: transparent;
-      border: none; border-radius: 8px; cursor: pointer; white-space: nowrap;
+      padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--text-secondary);
+      background: transparent; border: none; border-radius: var(--radius-sm);
+      cursor: pointer; white-space: nowrap; transition: all 0.2s;
     }
+    .tab:hover { color: var(--text-primary); }
     .tab.active { background: var(--accent-primary); color: white; }
     .section { display: none; }
     .section.active { display: block; }
     .card {
-      background: var(--bg-card); border-radius: 16px; padding: 20px;
+      background: var(--bg-card); border-radius: var(--radius-lg); padding: 20px;
       margin-bottom: 16px; border: 1px solid var(--border-color);
     }
     .card-header {
@@ -62,70 +87,137 @@
       font-size: 14px; font-weight: 600; color: var(--text-secondary);
       text-transform: uppercase; letter-spacing: 0.5px;
     }
-    .btn {
-      padding: 8px 16px; border-radius: 8px; border: none;
-      cursor: pointer; font-size: 13px; font-weight: 500;
+    .status-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .status-item { background: var(--bg-secondary); padding: 16px; border-radius: var(--radius-md); }
+    .status-label { font-size: 12px; color: var(--text-muted); }
+    .status-value { font-size: 18px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+    .success { color: var(--accent-success); }
+    .danger { color: var(--accent-danger); }
+    .warning { color: var(--accent-warning); }
+    
+    /* Model Selector */
+    .model-current {
+      padding: 12px 16px; background: var(--bg-secondary); border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+    }
+    .model-current:hover { border-color: var(--accent-primary); }
+    .model-current.active { border-color: var(--accent-primary); background: rgba(99,102,241,0.1); }
+    .model-name { font-weight: 500; font-size: 14px; }
+    .model-detail { font-size: 12px; color: var(--text-muted); }
+    .model-list { display: none; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .model-list.show { display: flex; }
+    .model-item {
+      padding: 12px 16px; background: var(--bg-secondary); border-radius: var(--radius-md);
+      cursor: pointer; display: flex; align-items: center; justify-content: space-between;
       transition: all 0.2s;
     }
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
-      color: white;
+    .model-item:hover { background: var(--bg-card-hover); }
+    .model-item.active { border: 2px solid var(--accent-primary); background: rgba(99,102,241,0.1); }
+    
+    /* Log Viewer */
+    .log-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
     }
-    .btn-secondary {
-      background: var(--bg-secondary); color: var(--text-secondary);
-      border: 1px solid var(--border-color);
+    .log-filters { display: flex; gap: 4px; }
+    .filter-btn {
+      padding: 6px 12px; font-size: 12px; font-weight: 500;
+      background: var(--bg-secondary); border: 1px solid var(--border-color);
+      border-radius: 12px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
     }
-    .status-grid {
-      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    .filter-btn:hover { background: var(--bg-card-hover); }
+    .filter-btn.active { background: var(--accent-primary); color: white; border-color: var(--accent-primary); }
+    .log-actions { display: flex; gap: 8px; }
+    .log-container {
+      background: #0d1117; border-radius: var(--radius-md); padding: 12px;
+      max-height: 500px; overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      line-height: 1.7; color: #c9d1d9;
     }
-    .status-item {
-      background: var(--bg-secondary); padding: 16px; border-radius: 12px;
-    }
-    .status-label { font-size: 12px; color: var(--text-muted); }
-    .status-value {
-      font-size: 18px; font-weight: 600; font-family: monospace;
-    }
-    .status-value.success { color: var(--accent-success); }
-    .status-value.danger { color: var(--accent-danger); }
-    .logs-container {
-      background: #0d1117; border-radius: 12px; padding: 16px;
-      max-height: 400px; overflow-y: auto;
-      font-family: 'SF Mono', monospace; font-size: 11px;
-      line-height: 1.6; color: #c9d1d9;
-      white-space: pre-wrap; word-break: break-all;
-    }
+    .log-line { display: flex; gap: 8px; padding: 2px 0; }
+    .log-time { color: var(--text-muted); flex-shrink: 0; }
+    .log-level { flex-shrink: 0; width: 50px; }
+    .log-level.info { color: var(--accent-primary); }
+    .log-level.warn { color: var(--accent-warning); }
+    .log-level.error { color: var(--accent-danger); }
+    .log-level.ws { color: var(--accent-success); }
+    
+    /* Config */
     .config-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
     .config-tab {
       padding: 6px 12px; font-size: 12px;
       background: var(--bg-secondary); border: 1px solid var(--border-color);
-      border-radius: 8px; color: var(--text-secondary); cursor: pointer;
+      border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer;
     }
     .config-tab.active { background: var(--accent-primary); color: white; }
     .config-editor textarea {
       width: 100%; min-height: 300px; padding: 14px;
       background: #0d1117; border: 1px solid var(--border-color);
-      border-radius: 12px; color: #c9d1d9;
-      font-family: 'SF Mono', monospace; font-size: 12px;
+      border-radius: var(--radius-md); color: #c9d1d9;
+      font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6;
       resize: vertical;
     }
+    .config-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+    
+    /* Backup */
+    .backup-item {
+      padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+    }
+    .backup-info { flex: 1; }
+    .backup-name { font-weight: 500; font-size: 13px; }
+    .backup-time { font-size: 11px; color: var(--text-muted); }
+    .backup-actions { display: flex; gap: 6px; }
+    
+    /* Skills */
+    .skill-item {
+      padding: 14px 16px; background: var(--bg-secondary); border-radius: var(--radius-md);
+      margin-bottom: 10px; cursor: pointer; transition: all 0.2s;
+    }
+    .skill-item:hover { background: var(--bg-card-hover); }
+    .skill-name { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+    .skill-desc { font-size: 12px; color: var(--text-muted); }
+    
+    /* Cron */
+    .cron-item {
+      padding: 14px; background: var(--bg-secondary); border-radius: var(--radius-md);
+      margin-bottom: 10px;
+    }
+    .cron-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .cron-name { font-weight: 600; font-size: 15px; }
+    .cron-status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+    .cron-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-success); }
+    .cron-dot.stopped { background: var(--accent-danger); }
+    .cron-details { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; font-size: 12px; color: var(--text-muted); }
+    .cron-detail span { color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
+    
+    /* Sessions */
+    .session-item {
+      padding: 14px; background: var(--bg-secondary); border-radius: var(--radius-md);
+      margin-bottom: 10px;
+    }
+    .session-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .session-name { font-weight: 500; font-size: 14px; }
+    .session-badge {
+      padding: 2px 8px; font-size: 10px; border-radius: 10px; background: var(--accent-primary); color: white;
+    }
+    .session-stats { display: flex; gap: 12px; }
+    .session-stat { text-align: center; }
+    .session-stat-value { font-size: 20px; font-weight: 600; }
+    .session-stat-label { font-size: 11px; color: var(--text-muted); }
+    
     .toast {
-      position: fixed; bottom: 24px; left: 50%;
-      transform: translateX(-50%);
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
       background: var(--bg-card); border: 1px solid var(--border-color);
-      padding: 12px 20px; border-radius: 12px; font-size: 14px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-      z-index: 1000; display: none;
+      padding: 12px 20px; border-radius: var(--radius-md); font-size: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 1000; display: none;
     }
     .toast.show { display: block; }
-    .backup-item {
-      padding: 12px; background: var(--bg-secondary);
-      border-radius: 8px; display: flex;
-      align-items: center; justify-content: space-between;
-      margin-bottom: 8px;
-    }
+    
     select, input {
-      padding: 8px; background: var(--bg-secondary);
-      border: 1px solid var(--border-color); border-radius: 8px;
+      padding: 8px 12px; background: var(--bg-secondary);
+      border: 1px solid var(--border-color); border-radius: var(--radius-sm);
       color: var(--text-primary); font-size: 12px;
     }
   </style>
@@ -133,18 +225,22 @@
 <body>
   <div class="container">
     <header class="header">
-      <div style="display:flex;align-items:center;gap:12px;">
+      <div class="header-left">
         <div class="logo">OC</div>
-        <h1 style="font-size:20px;">OpenClaw Dashboard</h1>
+        <h1>OpenClaw Dashboard</h1>
       </div>
-      <button class="btn btn-secondary" onclick="refreshAll()">刷新</button>
+      <button class="btn-icon" onclick="refreshAll()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
     </header>
 
     <div class="tabs">
       <button class="tab active" data-tab="dashboard">概览</button>
-      <button class="tab" data-tab="models">模型</button>
-      <button class="tab" data-tab="skills">Skills</button>
       <button class="tab" data-tab="cron">定时任务</button>
+      <button class="tab" data-tab="sessions">会话</button>
+      <button class="tab" data-tab="skills">Skills</button>
       <button class="tab" data-tab="logs">日志</button>
       <button class="tab" data-tab="config">配置</button>
     </div>
@@ -172,21 +268,17 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Models -->
-    <div class="section" id="section-models">
+      
       <div class="card">
-        <div class="card-header"><span class="card-title">🤖 模型配置</span></div>
-        <div id="model-list">加载中...</div>
-      </div>
-    </div>
-
-    <!-- Skills -->
-    <div class="section" id="section-skills">
-      <div class="card">
-        <div class="card-header"><span class="card-title">🔧 Skills</span></div>
-        <div id="skills-list">加载中...</div>
+        <div class="card-header"><span class="card-title">🤖 当前模型</span></div>
+        <div class="model-current" onclick="toggleModelList()">
+          <div>
+            <div class="model-name" id="current-model-name">--</div>
+            <div class="model-detail" id="current-model-detail">点击切换模型</div>
+          </div>
+          <span>▼</span>
+        </div>
+        <div class="model-list" id="model-list"></div>
       </div>
     </div>
 
@@ -198,23 +290,44 @@
       </div>
     </div>
 
+    <!-- Sessions -->
+    <div class="section" id="section-sessions">
+      <div class="card">
+        <div class="card-header"><span class="card-title">💬 会话状态</span></div>
+        <div id="sessions-stats" class="session-stats" style="margin-bottom:16px;"></div>
+        <div id="sessions-list">加载中...</div>
+      </div>
+    </div>
+
+    <!-- Skills -->
+    <div class="section" id="section-skills">
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔧 Skills 列表</span></div>
+        <div id="skills-list">加载中...</div>
+      </div>
+    </div>
+
     <!-- Logs -->
     <div class="section" id="section-logs">
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">📜 日志</span>
-          <button class="btn btn-primary" onclick="loadLogs()">刷新</button>
+        <div class="log-toolbar">
+          <div class="log-filters">
+            <button class="filter-btn active" data-level="all" onclick="setLogFilter('all', this)">全部</button>
+            <button class="filter-btn" data-level="info" onclick="setLogFilter('info', this)">Info</button>
+            <button class="filter-btn" data-level="warn" onclick="setLogFilter('warn', this)">Warn</button>
+            <button class="filter-btn" data-level="error" onclick="setLogFilter('error', this)">Error</button>
+            <button class="filter-btn" data-level="ws" onclick="setLogFilter('ws', this)">WS</button>
+          </div>
+          <div class="log-actions">
+            <button class="btn btn-sm" onclick="toggleAutoScroll()" id="autoscroll-btn">⏸ 暂停</button>
+            <button class="btn btn-sm btn-secondary" onclick="clearLogs()">清空</button>
+            <button class="btn btn-sm btn-primary" onclick="loadLogs()">刷新</button>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <select id="log-file" onchange="loadLogs()">
-            <option value="gateway.log">全部日志</option>
-            <option value="gateway.error.log">错误日志</option>
-            <option value="gateway.err.log">Err日志</option>
-          </select>
-          <input type="text" id="log-filter" placeholder="筛选关键词..." style="flex:1;" />
-          <button class="btn btn-secondary" onclick="loadLogs()">筛选</button>
+        <input type="text" id="log-search" placeholder="搜索关键词..." style="width:100%;margin-bottom:12px;" oninput="loadLogs()" />
+        <div class="log-container" id="log-container">
+          <div class="log-line"><span class="log-time">加载中...</span></div>
         </div>
-        <div class="logs-container" id="logs-container">加载中...</div>
       </div>
     </div>
 
@@ -223,8 +336,8 @@
       <div class="card">
         <div class="card-header"><span class="card-title">⚡ 快捷操作</span></div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
-          <button class="btn btn-primary" onclick="createBackup()">备份配置</button>
-          <button class="btn btn-secondary" onclick="restartGateway()">重启Gateway</button>
+          <button class="btn btn-primary" onclick="createBackup()">💾 备份配置</button>
+          <button class="btn btn-secondary" onclick="restartGateway()">🔄 重启Gateway</button>
         </div>
       </div>
       <div class="card">
@@ -237,11 +350,10 @@
           <button class="config-tab active" onclick="switchConfig('openclaw.json', this)">openclaw.json</button>
           <button class="config-tab" onclick="switchConfig('jobs.json', this)">jobs.json</button>
         </div>
-        <div class="config-editor">
-          <textarea id="config-content"></textarea>
-          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
-            <button class="btn btn-primary" onclick="saveConfig()">保存</button>
-          </div>
+        <textarea id="config-content"></textarea>
+        <div class="config-actions">
+          <button class="btn btn-secondary" onclick="validateConfig()">验证</button>
+          <button class="btn btn-primary" onclick="saveConfig()">保存</button>
         </div>
       </div>
     </div>
@@ -253,6 +365,9 @@
     const API_BASE = '';
     let currentTab = 'dashboard';
     let currentConfig = 'openclaw.json';
+    let logFilter = 'all';
+    let autoScroll = true;
+    let logData = [];
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -278,20 +393,23 @@
         tab.classList.add('active');
         document.getElementById('section-' + tab.dataset.tab).classList.add('active');
         currentTab = tab.dataset.tab;
+        if (currentTab === 'logs') loadLogs();
       });
     });
 
     async function refreshAll() {
-      showToast('刷新中...');
       loadStatus();
       loadModels();
-      loadSkills();
       loadCron();
+      loadSessions();
+      loadSkills();
       loadLogs();
       loadBackups();
       loadConfigs();
+      showToast('已刷新');
     }
 
+    // Status
     async function loadStatus() {
       const data = await api('/api/status');
       if (data.error) return;
@@ -302,104 +420,168 @@
       document.getElementById('cron-count').textContent = data.cronJobs || 0;
     }
 
+    // Models
     async function loadModels() {
       const data = await api('/api/models');
-      if (data.error) return;
-      const container = document.getElementById('model-list');
+      const primary = data.defaults?.primary || '';
+      
+      document.getElementById('current-model-name').textContent = primary || '未设置';
+      document.getElementById('current-model-detail').textContent = '点击切换模型';
+      
+      const list = document.getElementById('model-list');
       let html = '';
       for (const [provider, cfg] of Object.entries(data.providers || {})) {
         for (const model of cfg.models || []) {
-          html += `<div style="padding:14px;background:var(--bg-secondary);border-radius:12px;margin-bottom:8px;">${model.name}<br><small style="color:var(--text-muted)">${provider}</small></div>`;
+          const fullId = provider + '/' + model.id;
+          const isActive = fullId === primary;
+          html += `
+            <div class="model-item ${isActive ? 'active' : ''}" onclick="switchModel('${provider}', '${model.id}')">
+              <div>
+                <div class="model-name">${model.name}</div>
+                <div class="model-detail">${provider}</div>
+              </div>
+              ${isActive ? '<span>✓</span>' : ''}
+            </div>
+          `;
         }
       }
-      container.innerHTML = html || '暂无模型';
+      list.innerHTML = html;
     }
 
-    async function loadSkills() {
-      const data = await api('/api/skills');
-      if (data.error) return;
-      const container = document.getElementById('skills-list');
-      container.innerHTML = (data || []).map(s => `<div style="padding:10px;background:var(--bg-secondary);border-radius:8px;margin-bottom:6px;font-size:13px;">${s.name}</div>`).join('') || '暂无Skills';
+    function toggleModelList() {
+      document.getElementById('model-list').classList.toggle('show');
+      document.querySelector('.model-current').classList.toggle('active');
     }
 
+    async function switchModel(provider, modelId) {
+      const primary = provider + '/' + modelId;
+      await fetch(API_BASE + '/api/models/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ primary, fallbacks: [] })
+      });
+      showToast('模型已切换: ' + modelId);
+      loadModels();
+      toggleModelList();
+    }
+
+    // Cron
     async function loadCron() {
       const data = await api('/api/cron');
-      if (data.error) return;
       const container = document.getElementById('cron-list');
       container.innerHTML = (data || []).map(j => `
-        <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:8px;">
-          <div style="font-weight:500;font-size:14px;">${j.name}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${j.schedule} · ${j.model}</div>
+        <div class="cron-item">
+          <div class="cron-header">
+            <span class="cron-name">${j.name || j.id}</span>
+            <div class="cron-status">
+              <div class="cron-dot ${j.enabled ? '' : 'stopped'}"></div>
+              <span>${j.enabled ? '运行中' : '已停止'}</span>
+            </div>
+          </div>
+          <div class="cron-details">
+            <div class="cron-detail">时间: <span>${j.schedule}</span></div>
+            <div class="cron-detail">任务: <span>${j.model}</span></div>
+          </div>
         </div>
       `).join('') || '暂无定时任务';
     }
 
+    // Sessions
+    async function loadSessions() {
+      const data = await api('/api/sessions');
+      const summary = data.summary || {};
+      
+      document.getElementById('sessions-stats').innerHTML = `
+        <div class="session-stat"><div class="session-stat-value success">${summary.activeCount || 0}</div><div class="session-stat-label">活跃投递</div></div>
+        <div class="session-stat"><div class="session-stat-value danger">${summary.failedCount || 0}</div><div class="session-stat-label">失败投递</div></div>
+        <div class="session-stat"><div class="session-stat-value">${summary.telegramCount || 0}</div><div class="session-stat-label">Telegram</div></div>
+      `;
+      
+      let html = '';
+      (data.telegram || []).forEach(s => {
+        html += `<div class="session-item">
+          <div class="session-header">
+            <span class="session-name">${s.id}</span>
+            <span class="session-badge">Telegram</span>
+          </div>
+          <div class="cron-details">
+            <div class="cron-detail">最后更新: <span>${s.lastUpdate ? new Date(s.lastUpdate).toLocaleString('zh-CN') : '未知'}</span></div>
+          </div>
+        </div>`;
+      });
+      document.getElementById('sessions-list').innerHTML = html || '暂无会话';
+    }
+
+    // Skills
+    async function loadSkills() {
+      const data = await api('/api/skills');
+      const container = document.getElementById('skills-list');
+      container.innerHTML = (data || []).map(s => `
+        <div class="skill-item">
+          <div class="skill-name">${s.name}</div>
+          <div class="skill-desc">${s.description || '暂无描述'}</div>
+        </div>
+      `).join('') || '暂无Skills';
+    }
+
+    // Logs
     async function loadLogs() {
-      const file = document.getElementById('log-file')?.value || 'gateway.log';
-      const filter = document.getElementById('log-filter')?.value || '';
-      const container = document.getElementById('logs-container');
+      const file = 'gateway.log';
+      const search = document.getElementById('log-search').value;
+      let filter = logFilter;
+      if (search) filter = filter === 'all' ? search : filter + ' ' + search;
       
       const filterParam = filter ? `&filter=${encodeURIComponent(filter)}` : '';
       const data = await api(`/api/logs?lines=200&file=${file}${filterParam}`);
       
-      container.textContent = data.content || data.error || '暂无日志';
+      logData = (data.content || '').split('\n').filter(l => l.trim());
+      renderLogs();
     }
 
-    async function loadBackups() {
-      const data = await api('/api/backups');
-      const container = document.getElementById('backup-list');
-      container.innerHTML = (data || []).map(b => `
-        <div class="backup-item">
-          <div>
-            <div style="font-weight:500;font-size:13px;">${b.name}</div>
-            <div style="font-size:11px;color:var(--text-muted);">${new Date(b.created).toLocaleString('zh-CN')}</div>
-          </div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="viewBackup('${b.name}')">查看</button>
-            <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="restoreBackup('${b.name}')">恢复</button>
-          </div>
-        </div>
-      `).join('') || '暂无备份';
+    function renderLogs() {
+      const container = document.getElementById('log-container');
+      container.innerHTML = logData.map(line => {
+        let level = 'info';
+        let msg = line;
+        
+        if (line.includes('error') || line.includes('Error') || line.includes('✗')) level = 'error';
+        else if (line.includes('warn') || line.includes('Warn') || line.includes('WARNING')) level = 'warn';
+        else if (line.includes('[ws]') || line.includes('WS')) level = 'ws';
+        
+        // Extract time
+        const timeMatch = line.match(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z/);
+        const time = timeMatch ? timeMatch[0].replace('T', ' ').substring(0, 19) : '';
+        
+        return `<div class="log-line">
+          <span class="log-time">${time}</span>
+          <span class="log-level ${level}">${level.toUpperCase()}</span>
+          <span class="log-message">${msg.replace(/^\S+\s*/, '').replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z/, '')}</span>
+        </div>`;
+      }).join('');
+      
+      if (autoScroll) container.scrollTop = container.scrollHeight;
     }
 
-    async function viewBackup(name) {
-      const data = await api('/api/backup/' + name + '/details');
-      if (data.error) return showToast('加载失败');
-      const time = (data.changelog || '').match(/\*\*备份时间\*\*:\s*(.+)/)?.[1] || '未知';
-      const content = (data.changelog || '').match(/### 修改内容\n(.+?)(?=\n###|$)/s)?.[1]?.replace(/^- /gm, '').trim() || '无';
-      alert('📋 备份信息\n\n⏰ 备份时间: ' + time + '\n\n📝 修改内容: ' + content);
+    function setLogFilter(level, btn) {
+      logFilter = level;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadLogs();
     }
 
-    async function restoreBackup(name) {
-      if (!confirm('确定要恢复 ' + name + ' 吗？\n当前配置将被覆盖！')) return;
-      const res = await fetch(API_BASE + '/api/backup/' + name + '/restore', { method: 'POST' });
-      const data = await res.json();
-      showToast(data.success ? '备份已恢复' : '恢复失败');
+    function toggleAutoScroll() {
+      autoScroll = !autoScroll;
+      document.getElementById('autoscroll-btn').textContent = autoScroll ? '⏸ 暂停' : '▶️ 继续';
     }
 
-    async function createBackup() {
-      const desc = prompt('备份说明:', '手动备份');
-      if (desc === null) return;
-      const res = await fetch(API_BASE + '/api/backup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: desc })
-      });
-      const data = await res.json();
-      showToast(data.success ? '备份成功' : '备份失败');
-      loadBackups();
+    function clearLogs() {
+      logData = [];
+      renderLogs();
     }
 
-    async function restartGateway() {
-      if (!confirm('确定要重启Gateway吗？')) return;
-      const res = await fetch(API_BASE + '/api/gateway/restart', { method: 'POST' });
-      const data = await res.json();
-      showToast(data.success ? 'Gateway正在重启...' : data.error);
-    }
-
+    // Config
     async function loadConfigs() {
       const data = await api('/api/configs');
-      if (data.error) return;
       const cfg = data.find(c => c.id === currentConfig);
       if (cfg) document.getElementById('config-content').value = cfg.content || '';
     }
@@ -419,7 +601,73 @@
         body: JSON.stringify({ id: currentConfig, content })
       });
       const data = await res.json();
-      showToast(data.success ? '配置已保存' : '保存失败: ' + data.error);
+      showToast(data.success ? '配置已保存' : '保存失败');
+    }
+
+    function validateConfig() {
+      const content = document.getElementById('config-content').value;
+      if (currentConfig.endsWith('.json')) {
+        try {
+          JSON.parse(content);
+          showToast('✓ JSON格式正确');
+        } catch (e) {
+          showToast('✗ JSON格式错误: ' + e.message);
+        }
+      } else {
+        showToast('✓ 格式检查通过');
+      }
+    }
+
+    // Backup
+    async function loadBackups() {
+      const data = await api('/api/backups');
+      const container = document.getElementById('backup-list');
+      container.innerHTML = (data || []).map(b => `
+        <div class="backup-item">
+          <div class="backup-info">
+            <div class="backup-name">${b.name}</div>
+            <div class="backup-time">${new Date(b.created).toLocaleString('zh-CN')}</div>
+          </div>
+          <div class="backup-actions">
+            <button class="btn btn-sm btn-secondary" onclick="viewBackup('${b.name}')">查看</button>
+            <button class="btn btn-sm btn-secondary" onclick="restoreBackup('${b.name}')">恢复</button>
+          </div>
+        </div>
+      `).join('') || '暂无备份';
+    }
+
+    async function viewBackup(name) {
+      const data = await api('/api/backup/' + name + '/details');
+      const time = (data.changelog || '').match(/\*\*备份时间\*\*:\s*(.+)/)?.[1] || '未知';
+      const content = (data.changelog || '').match(/### 修改内容\n(.+?)(?=\n###|$)/s)?.[1]?.replace(/^- /gm, '').trim() || '无';
+      alert('📋 ' + name + '\n\n⏰ ' + time + '\n\n📝 ' + content);
+    }
+
+    async function restoreBackup(name) {
+      if (!confirm('确定要恢复 ' + name + ' 吗？')) return;
+      const res = await fetch(API_BASE + '/api/backup/' + name + '/restore', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.success ? '备份已恢复' : '恢复失败');
+    }
+
+    async function createBackup() {
+      const desc = prompt('备份说明:', '手动备份');
+      if (!desc) return;
+      const res = await fetch(API_BASE + '/api/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: desc })
+      });
+      const data = await res.json();
+      showToast(data.success ? '备份成功' : '备份失败');
+      loadBackups();
+    }
+
+    async function restartGateway() {
+      if (!confirm('确定要重启Gateway吗？')) return;
+      const res = await fetch(API_BASE + '/api/gateway/restart', { method: 'POST' });
+      const data = await res.json();
+      showToast(data.success ? 'Gateway正在重启...' : '重启失败');
     }
 
     // Init
