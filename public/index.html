@@ -165,6 +165,37 @@
       font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6;
       resize: none; box-sizing: border-box;
     }
+    
+    /* Form Config Styles */
+    .view-mode-group { display: flex; gap: 4px; }
+    .view-mode-group .btn { padding: 6px 12px; font-size: 12px; }
+    .view-mode-group .btn.active { background: var(--accent-primary); }
+    
+    .form-config { padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md); margin-bottom: 12px; }
+    .form-field { margin-bottom: 16px; }
+    .form-label { display: block; font-weight: 500; margin-bottom: 6px; color: var(--text-primary); }
+    .form-input, .form-select { 
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); 
+      border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-primary);
+      font-size: 13px;
+    }
+    .form-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    
+    .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: var(--bg-primary); border-radius: 24px; transition: 0.3s; border: 1px solid var(--border-color);
+    }
+    .toggle-slider:before {
+      position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px;
+      background: white; border-radius: 50%; transition: 0.3s;
+    }
+    .toggle input:checked + .toggle-slider { background: var(--accent-primary); }
+    .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+    
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-warning { background: var(--accent-warning); color: #000; }
     .config-editor textarea:focus { outline: none; border-color: var(--accent-primary); }
     
     /* Backup */
@@ -389,9 +420,15 @@
           <button class="config-tab" onclick="switchConfig('MEMORY.md', this)">MEMORY.md</button>
         </div>
         <div class="config-actions">
+          <div class="view-mode-group">
+            <button class="btn btn-sm view-mode-btn active" data-mode="json" onclick="toggleConfigView('json')">JSON</button>
+            <button class="btn btn-sm view-mode-btn" data-mode="form" onclick="toggleConfigView('form')">表单</button>
+          </div>
           <button class="btn btn-secondary" onclick="validateConfig()">✓ 验证</button>
           <button class="btn btn-primary" onclick="saveConfig()">💾 保存</button>
+          <button class="btn btn-warning" id="apply-form-btn" style="display:none;" onclick="applyFormChanges()">✓ 应用更改</button>
         </div>
+        <div id="config-form-view" style="display:none;"></div>
         <textarea id="config-content" style="width:100%;min-height:400px;resize:none;"></textarea>
       </div>
     </div>
@@ -701,10 +738,158 @@
     }
 
     // Config
+    // Config schemas with descriptions
+    const configSchemas = {
+      'openclaw.json': {
+        fields: {
+          'agents.defaults.model.primary': { 
+            label: '主模型', 
+            type: 'select',
+            options: [
+              { value: 'minimax-portal/MiniMax-M2.5', label: 'MiniMax M2.5' },
+              { value: 'kimi-coding/k2p5', label: 'Kimi for Coding' }
+            ],
+            desc: '默认使用的AI模型，会话中优先使用此模型'
+          },
+          'gateway.port': { 
+            label: 'Gateway端口', 
+            type: 'number',
+            desc: 'Gateway服务端口，默认18789'
+          },
+          'gateway.bind': { 
+            label: '绑定地址', 
+            type: 'select',
+            options: [
+              { value: 'loopback', label: 'loopback (仅本地)' },
+              { value: 'lan', label: 'lan (局域网)' },
+              { value: 'auto', label: 'auto (自动)' }
+            ],
+            desc: 'Gateway绑定模式，影响访问范围'
+          },
+          'gateway.auth.mode': { 
+            label: '认证模式', 
+            type: 'select',
+            options: [
+              { value: 'token', label: 'token (令牌)' },
+              { value: 'password', label: 'password (密码)' }
+            ],
+            desc: 'Gateway认证方式'
+          },
+          'channels.telegram.enabled': { 
+            label: 'Telegram启用', 
+            type: 'toggle',
+            desc: '是否启用Telegram频道'
+          }
+        }
+      }
+    };
+    
+    let configViewMode = 'json'; // 'json' or 'form'
+    
     async function loadConfigs() {
       const data = await api('/api/configs');
       const cfg = data.find(c => c.id === currentConfig);
-      if (cfg) document.getElementById('config-content').value = cfg.content || '';
+      if (cfg) {
+        document.getElementById('config-content').value = cfg.content || '';
+        // Show/hide form view based on config type
+        const formView = document.getElementById('config-form-view');
+        if (configSchemas[currentConfig] && configViewMode === 'form') {
+          renderFormView(cfg.content);
+        } else {
+          formView.style.display = 'none';
+        }
+      }
+    }
+    
+    function renderFormView(jsonContent) {
+      const container = document.getElementById('config-form-view');
+      const schema = configSchemas[currentConfig];
+      if (!schema) return;
+      
+      try {
+        const config = JSON.parse(jsonContent);
+        let html = '<div class="form-config">';
+        
+        for (const [path, field] of Object.entries(schema.fields)) {
+          const value = getNestedValue(config, path);
+          html += `<div class="form-field">
+            <label class="form-label">${field.label}</label>`;
+          
+          if (field.type === 'select') {
+            html += `<select class="form-select" data-path="${path}">`;
+            for (const opt of field.options) {
+              const selected = opt.value === value ? 'selected' : '';
+              html += `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+            }
+            html += '</select>';
+          } else if (field.type === 'toggle') {
+            const checked = value ? 'checked' : '';
+            html += `<label class="toggle"><input type="checkbox" data-path="${path}" ${checked}><span class="toggle-slider"></span></label>`;
+          } else {
+            html += `<input type="${field.type}" class="form-input" data-path="${path}" value="${value || ''}">`;
+          }
+          
+          html += `<div class="form-desc">${field.desc || ''}</div></div>`;
+        }
+        
+        html += '</div>';
+        container.innerHTML = html;
+        container.style.display = 'block';
+      } catch (e) {
+        container.innerHTML = '<div style="color:var(--accent-danger);">JSON格式错误，请先修复</div>';
+        container.style.display = 'block';
+      }
+    }
+    
+    function getNestedValue(obj, path) {
+      return path.split('.').reduce((o, k) => o?.[k], obj);
+    }
+    
+    function setNestedValue(obj, path, value) {
+      const keys = path.split('.');
+      let current = obj;
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!current[keys[i]]) current[keys[i]] = {};
+        current = current[keys[i]];
+      }
+      current[keys[keys.length - 1]] = value;
+    }
+    
+    function toggleConfigView(mode) {
+      configViewMode = mode;
+      document.querySelectorAll('.view-mode-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+      
+      const textarea = document.getElementById('config-content');
+      const applyBtn = document.getElementById('apply-form-btn');
+      
+      if (mode === 'form') {
+        textarea.style.display = 'none';
+        applyBtn.style.display = 'inline-block';
+      } else {
+        textarea.style.display = 'block';
+        applyBtn.style.display = 'none';
+        document.getElementById('config-form-view').style.display = 'none';
+      }
+      
+      loadConfigs();
+    }
+    
+    function applyFormChanges() {
+      const content = document.getElementById('config-content').value;
+      try {
+        const config = JSON.parse(content);
+        document.querySelectorAll('.form-field input, .form-field select').forEach(el => {
+          const path = el.dataset.path;
+          let value = el.type === 'checkbox' ? el.checked : el.value;
+          if (el.type === 'number') value = parseInt(value);
+          setNestedValue(config, path, value);
+        });
+        document.getElementById('config-content').value = JSON.stringify(config, null, 2);
+        showToast('表单更改已应用到JSON');
+      } catch (e) {
+        showToast('JSON格式错误: ' + e.message);
+      }
     }
 
     function switchConfig(id, btn) {
