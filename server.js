@@ -933,7 +933,175 @@ app.use('/proxy-webui', (req, res) => {
   req.pipe(proxyReq, { end: true });
 });
 
-// Start server
+// ========== Chat API ==========
+const OPENCLAW_TOKEN = '4094e456d7bf7d25319b41ffd460f839ac986f42e597483c';
+
+// Get sessions list
+app.get('/api/chat/sessions', async (req, res) => {
+  try {
+    const sessionsFile = OPENCLAW_DIR + '/agents/main/sessions/sessions.json';
+    const sessions = [];
+    
+    // Load custom names
+    const metaFile = WORKSPACE_DIR + '/openclaw-chat-web/sessions_meta.json';
+    let meta = {};
+    if (fs.existsSync(metaFile)) {
+      meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+    }
+    
+    if (fs.existsSync(sessionsFile)) {
+      const data = JSON.parse(fs.readFileSync(sessionsFile, 'utf8'));
+      for (const key of Object.keys(data)) {
+        if (key.startsWith('agent:main:telegram:') || key.startsWith('agent:main:web:')) {
+          let name = meta[key] || key;
+          
+          // Format Telegram sessions
+          if (key.includes('telegram:')) {
+            if (key.includes('topic:')) {
+              name = 'Topic #' + key.split('topic:')[1];
+            } else if (key.includes('direct:')) {
+              const username = key.split('direct:')[1];
+              name = username.startsWith('@') ? username : '私聊';
+            }
+            // Override with custom name if exists
+            if (meta[key]) name = meta[key];
+          }
+          
+          sessions.push({
+            key,
+            name,
+            type: key.includes('telegram') ? 'telegram' : 'web'
+          });
+        }
+      }
+    }
+    res.json(sessions);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Create new session
+app.post('/api/chat/sessions', async (req, res) => {
+  try {
+    const uuid = require('crypto').randomBytes(4).toString('hex');
+    const sessionKey = 'agent:main:web:' + uuid;
+    const name = req.body.name || '新会话';
+    
+    // Save custom name
+    const metaFile = WORKSPACE_DIR + '/openclaw-chat-web/sessions_meta.json';
+    let meta = {};
+    if (fs.existsSync(metaFile)) {
+      meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+    }
+    meta[sessionKey] = name;
+    fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
+    
+    res.json({ key: sessionKey, name });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Rename session
+app.post('/api/chat/sessions/:key/rename', async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { name } = req.body;
+    
+    const metaFile = WORKSPACE_DIR + '/openclaw-chat-web/sessions_meta.json';
+    let meta = {};
+    if (fs.existsSync(metaFile)) {
+      meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+    }
+    meta[key] = name;
+    fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
+    
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 重命名会话 (PUT)
+app.put('/api/chat/sessions/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { name } = req.body;
+    
+    const metaFile = WORKSPACE_DIR + '/openclaw-chat-web/sessions_meta.json';
+    let meta = {};
+    if (fs.existsSync(metaFile)) {
+      meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+    }
+    meta[key] = name;
+    fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
+    
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 删除会话 (DELETE)
+app.delete('/api/chat/sessions/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    
+    const metaFile = WORKSPACE_DIR + '/openclaw-chat-web/sessions_meta.json';
+    if (fs.existsSync(metaFile)) {
+      let meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+      delete meta[key];
+      fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
+    }
+    
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Chat completion
+app.post('/api/chat/completions', async (req, res) => {
+  try {
+    const sessionKey = req.headers['x-openclaw-session-key'] || '';
+    
+    const body = JSON.stringify(req.body);
+    
+    const options = {
+      hostname: '127.0.0.1',
+      port: 18789,
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + OPENCLAW_TOKEN,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    };
+    
+    if (sessionKey) {
+      options.headers['X-Openclaw-Session-Key'] = sessionKey;
+    }
+    
+    const response = await new Promise((resolve, reject) => {
+      const req = http.request(options, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        });
+        proxyRes.pipe(res, { end: true });
+      });
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ========== Start server ==========
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`OpenClaw Dashboard running on http://0.0.0.0:${PORT}`);
 });
