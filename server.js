@@ -867,6 +867,21 @@ app.use('/proxy-dashboard', (req, res) => {
   req.pipe(proxyReq, { end: true });
 });
 
+// Proxy to OpenClaw WebUI (with token)
+app.use('/proxy-webui', (req, res) => {
+  const targetUrl = 'http://127.0.0.1:18789' + req.url;
+  
+  const proxyReq = http.request(targetUrl, { method: req.method }, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, {
+      ...proxyRes.headers,
+      'Access-Control-Allow-Origin': '*'
+    });
+    proxyRes.pipe(res, { end: true });
+  });
+  
+  req.pipe(proxyReq, { end: true });
+});
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`OpenClaw Dashboard running on http://0.0.0.0:${PORT}`);
