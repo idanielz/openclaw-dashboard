@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenClaw Dashboard</title>
+  <title>小虾米</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -65,9 +65,10 @@
     .tabs {
       display: flex; gap: 4px; background: var(--bg-secondary); padding: 4px;
       border-radius: var(--radius-md); margin-bottom: 8px; overflow-x: auto;
+      justify-content: space-evenly;
     }
     .tab {
-      padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--text-secondary);
+      flex: 1; text-align: center; padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--text-secondary);
       background: transparent; border: none; border-radius: var(--radius-sm);
       cursor: pointer; white-space: nowrap; transition: all 0.2s;
     }
@@ -269,8 +270,8 @@
   <div class="container">
     <header class="header">
       <div class="header-left">
-        <div class="logo">OC</div>
-        <h1>OpenClaw Dashboard</h1>
+        <div class="logo">🦞</div>
+        <h1>小虾米</h1>
       </div>
       <button class="btn-icon" onclick="refreshAll()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -286,6 +287,7 @@
       <button class="tab" data-tab="skills">Skills</button>
       <button class="tab" data-tab="logs">日志</button>
       <button class="tab" data-tab="config">配置</button>
+      <button class="tab" data-tab="webui">内置WebUI</button>
     </div>
 
     <!-- Dashboard -->
@@ -413,6 +415,13 @@
         <div class="log-container" id="log-container">
           <div class="log-line"><span class="log-time">加载中...</span></div>
         </div>
+      </div>
+    </div>
+
+    <!-- WebUI -->
+    <div class="section" id="section-webui">
+      <div class="card" style="padding:0;height:calc(100vh - 200px);">
+        <iframe src="http://192.168.31.183:18789/?token=4094e456d7bf7d25319b41ffd460f839ac986f42e597483c" style="width:100%;height:100%;border:none;border-radius:var(--radius-lg);"></iframe>
       </div>
     </div>
 
