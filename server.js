@@ -559,7 +559,7 @@ app.get('/api/configs', (req, res) => {
         }
       }
       
-      return { ...c, exists, size, modified, content: content.substring(0, 5000) };
+      return { ...c, exists, size, modified, content: content.substring(0, 50000) };
     });
     
     res.json(result);
