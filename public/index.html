@@ -265,15 +265,15 @@
     
     /* 聊天响应式 */
     @media (max-width: 600px) {
-      .chat-container { height: calc(100vh - 160px) !important; min-height: 200px !important; }
+      .chat-container { height: calc(100vh - 100px) !important; }
       .chat-drawer { left: 8px; right: 8px; width: auto; }
       .chat-header .card-title { order: 2; flex: 1; text-align: center; }
       .chat-header .btn-sm { order: 3; }
       .chat-menu-btn { order: 1; }
-      .chat-main { padding: 6px !important; }
-      #chat-messages { gap: 4px !important; }
+      .chat-input-area { padding: 8px !important; }
+      #chat-messages { gap: 4px !important; padding: 8px !important; }
       #chat-messages > div { font-size: 13px !important; padding: 6px 10px !important; }
-      #chat-input { padding: 6px 10px !important; font-size: 13px !important; }
+      #chat-input { padding: 6px 10px !important; font-size: 13px !important; min-height: 36px !important; }
       .section { padding: 4px; }
       .card { padding: 8px !important; }
     }
@@ -432,15 +432,13 @@
           </div>
         </div>
         <div class="chat-drawer-overlay" id="chat-drawer-overlay" onclick="toggleChatDrawer()"></div>
-        <div class="chat-container" style="display:flex;gap:12px;height:calc(100vh - 260px);min-height:300px;">
-          <div class="chat-main" style="flex:1;display:flex;flex-direction:column;background:var(--bg-secondary);border-radius:8px;padding:10px;">
-            <div id="chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
-              <div style="color:var(--text-muted);text-align:center;padding:20px;">选择或创建一个会话开始聊天</div>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:10px;">
-              <textarea id="chat-input" placeholder="输入消息... (Enter发送, Shift+Enter换行)" style="flex:1;background:var(--bg-card);border:1px solid var(--border-color);border-radius:20px;padding:8px 12px;font-size:14px;color:var(--text-primary);outline:none;resize:none;overflow:hidden;min-height:40px;max-height:120px;line-height:1.4;" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChatMessage()}"></textarea>
-              <button class="btn btn-primary" onclick="sendChatMessage()">发送</button>
-            </div>
+        <div class="chat-container" style="display:flex;flex-direction:column;height:calc(100vh - 140px);">
+          <div id="chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;padding:10px;">
+            <div style="color:var(--text-muted);text-align:center;padding:20px;">选择或创建一个会话开始聊天</div>
+          </div>
+          <div class="chat-input-area" style="display:flex;gap:8px;padding:10px;background:var(--bg-secondary);border-top:1px solid var(--border-color);flex-shrink:0;">
+            <textarea id="chat-input" placeholder="输入消息... (Enter发送, Shift+Enter换行)" style="flex:1;background:var(--bg-card);border:1px solid var(--border-color);border-radius:20px;padding:8px 12px;font-size:14px;color:var(--text-primary);outline:none;resize:none;overflow:hidden;min-height:40px;max-height:120px;line-height:1.4;" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChatMessage()}"></textarea>
+            <button class="btn btn-primary" onclick="sendChatMessage()" style="flex-shrink:0;">发送</button>
           </div>
         </div>
       </div>
@@ -921,10 +919,46 @@
       return div.innerHTML;
     }
     
+    // 格式化时间
+    function formatTime(timestamp) {
+      if (!timestamp) return '';
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diff = now - date;
+      if (diff < 60000) return '刚刚';
+      if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+      if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
+      return date.toLocaleDateString('zh-CN');
+    }
+    
+    // 简单的 Markdown 解析
+    function parseMarkdown(text) {
+      if (!text) return '';
+      let html = escapeHtml(text);
+      // 代码块
+      html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre style="background:var(--bg-secondary);padding:8px;border-radius:6px;margin:4px 0;overflow-x:auto;font-family:monospace;font-size:12px;">$2</pre>');
+      // 行内代码
+      html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg-secondary);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px;">$1</code>');
+      // 粗体
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      // 斜体
+      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      // 删除线
+      html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+      // 链接
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--accent-primary);text-decoration:underline;" target="_blank">$1</a>');
+      // 换行
+      html = html.replace(/\n/g, '<br>');
+      return html;
+    }
+    
     async function loadChatSessions() {
       try {
         const res = await fetch('/api/chat/sessions');
         chatSessions = await res.json();
+        // 按更新时间倒序排列
+        chatSessions.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
         renderChatSessions();
       } catch (e) {
         document.getElementById('chat-sessions').innerHTML = '加载失败: ' + e.message;
@@ -944,7 +978,7 @@
              style="padding:10px;border-radius:6px;cursor:pointer;margin-bottom:4px;font-size:12px;position:relative;display:flex;align-items:center;justify-content:space-between;${currentChatSession && currentChatSession.key === s.key ? 'background:var(--accent-primary);' : ''}">
           <div style="flex:1;overflow:hidden;">
             <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.name)}</div>
-            <div class="session-type" style="font-size:10px;color:var(--text-muted);">${s.type === 'telegram' ? '📱' : '🌐'}</div>
+            <div class="session-type" style="font-size:10px;color:var(--text-muted);">${s.type === 'telegram' ? '📱' : '🌐'} · ${formatTime(s.updatedAt)}</div>
           </div>
           <div style="display:flex;gap:4px;" onclick="event.stopPropagation();">
             <button onclick="renameSession('${s.key}', '${escapeHtml(s.name).replace(/'/g, "\\'")}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:2px 6px;font-size:12px;" title="重命名">✏️</button>
@@ -1050,7 +1084,7 @@
       
       container.innerHTML = msgs.map(m => `
         <div style="max-width:85%;padding:8px 12px;border-radius:12px;font-size:13px;line-height:1.5;word-break:break-word;${m.role === 'user' ? 'align-self:flex-end;background:var(--user-msg);border-bottom-right-radius:4px;' : 'align-self:flex-start;background:var(--ai-msg);border-bottom-left-radius:4px;'}">
-          ${escapeHtml(m.content)}
+          ${parseMarkdown(m.content)}
         </div>
       `).join('');
       
@@ -1094,6 +1128,9 @@
       container.innerHTML += '<div id="chat-typing" style="align-self:flex-start;background:var(--ai-msg);padding:10px 14px;border-radius:12px;">...</div>';
       container.scrollTop = container.scrollHeight;
       
+      // 只发送最近50条消息，避免上下文过长
+      const recentMessages = chatHistory.slice(-50);
+      
       try {
         const res = await fetch('/api/chat/completions', {
           method: 'POST',
@@ -1103,7 +1140,7 @@
           },
           body: JSON.stringify({
             model: 'openclaw',
-            messages: chatHistory,
+            messages: recentMessages,
             stream: false
           })
         });
@@ -1118,7 +1155,6 @@
         
         document.getElementById('chat-typing')?.remove();
         renderChatMessages();
-        
       } catch (e) {
         document.getElementById('chat-typing')?.remove();
         container.innerHTML += `<div style="align-self:flex-start;background:#4a2020;color:#f87171;padding:10px 14px;border-radius:12px;">❌ ${escapeHtml(e.message)}</div>`;
@@ -1138,17 +1174,28 @@
         });
       }
       
-      // Restore last session
+      // Restore last session or select first
       const lastKey = localStorage.getItem(chatCurrentKey);
       if (lastKey) {
         const session = chatSessions.find(s => s.key === lastKey);
         if (session) {
           currentChatSession = session;
-          chatHistory = loadChatSessionHistory(lastKey);
+          chatHistory = await loadChatHistory(lastKey);
           document.getElementById('chat-current-name').textContent = '💬 ' + session.name;
           renderChatMessages();
           renderChatSessions();
+          return;
         }
+      }
+      // 没有历史则选择第一个会话
+      if (chatSessions.length > 0) {
+        const firstSession = chatSessions[0];
+        currentChatSession = firstSession;
+        localStorage.setItem(chatCurrentKey, firstSession.key);
+        chatHistory = await loadChatHistory(firstSession.key);
+        document.getElementById('chat-current-name').textContent = '💬 ' + firstSession.name;
+        renderChatMessages();
+        renderChatSessions();
       }
     }
 

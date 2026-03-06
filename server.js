@@ -970,7 +970,8 @@ app.get('/api/chat/sessions', async (req, res) => {
           sessions.push({
             key,
             name,
-            type: key.includes('telegram') ? 'telegram' : 'web'
+            type: key.includes('telegram') ? 'telegram' : 'web',
+            updatedAt: data[key].updatedAt || 0
           });
         }
       }
@@ -1122,24 +1123,70 @@ function getOpenClawMessages(key) {
     for (const line of lines) {
       try {
         const entry = JSON.parse(line);
+        // 过滤非消息类型（跳过 thinking、toolCall、model_change 等中间状态）
+        if (entry.type && entry.type !== 'message') continue;
+        
         // 兼容多种格式
-        if (entry.type === 'message' && entry.message) {
+        if (entry.message && entry.message.role && entry.message.content) {
           const msg = entry.message;
-          if (msg.role && msg.content) {
-            // content 可能是数组（多模态）或是字符串
-            let content = msg.content;
-            if (Array.isArray(content)) {
-              content = content.map(c => c.type === 'text' ? c.text : `[${c.type}]`).join('');
-            }
+          // 过滤 thinking 和 toolCall
+          if (msg.role === 'thinking' || msg.role === 'tool-call' || msg.role === 'tool') continue;
+          let content = msg.content;
+          if (Array.isArray(content)) {
+            content = content.map(c => c.type === 'text' ? c.text : `[${c.type}]`).join('');
+          }
+          // 过滤空消息和 thinking 内容
+          if (!content || content === '[thinking]' || content === '[toolCall]') continue;
+          if (content.startsWith('[thinking]') || content.startsWith('[toolCall]')) continue;
+          // 过滤包含历史消息的内容
+          if (content.includes('[Chat messages since') || content.includes('[Current message')) continue;
+          // 过滤 git commit
+          if (content.includes('[main ') || content.match(/^\[\w+\s+\w+\]/)) continue;
+          // 过滤包含代码或命令的消息
+          if (content.includes('{') && content.includes('}') && content.includes(':')) continue;
+          if (content.match(/^\d+:/)) continue;
+          if (content.includes('/') && content.includes('.') && content.match(/\w+\.\w+/)) continue;
+          if (content.match(/^[a-z]:\\/i)) continue;
+          if (content.match(/\b(tcp|udp|http|https|ftp|ssh|git)\b/i) && content.length < 100) continue;
+          if (content.includes('not found') || content.includes('Command') || content.includes('error') || content.includes('Error')) continue;
+          if (content.includes('zsh:') || content.includes('bash:') || content.includes('$ ') || content.includes('端口')) continue;
+          if (content.includes('<') && content.includes('>') && !content.includes('《')) continue;
+          // 过滤只包含特殊字符或数字
+          if (!content.match(/[\u4e00-\u9fa5]/) && !content.match(/[a-zA-Z]{3,}/)) continue;
+          // 过滤过短或过长的消息
+          if (content.length < 4 || content.length > 600) continue;
+          // 只保留 user 消息和看起来像正常回复的 assistant 消息
+          if (msg.role === 'user' || content.match(/[\u4e00-\u9fa5]/)) {
             messages.push({ role: msg.role, content: content });
           }
-        } else if (entry.role && entry.content) {
+        } else if (entry.role && entry.content && entry.role !== 'thinking' && entry.role !== 'tool-call') {
           // 直接是消息格式
           let content = entry.content;
           if (Array.isArray(content)) {
             content = content.map(c => c.type === 'text' ? c.text : `[${c.type}]`).join('');
           }
-          messages.push({ role: entry.role, content: content });
+          // 过滤空消息
+          if (!content || content === '[thinking]' || content === '[toolCall]') continue;
+          if (content.startsWith('[thinking]') || content.startsWith('[toolCall]')) continue;
+          // 过滤历史消息
+          if (content.includes('[Chat messages since') || content.includes('[Current message')) continue;
+          // 过滤 git commit
+          if (content.includes('[main ') || content.match(/^\[\w+\s+\w+\]/)) continue;
+          // 过滤包含代码或命令的消息
+          if (content.includes('{') && content.includes('}') && content.includes(':')) continue;
+          if (content.match(/^\d+:/)) continue;
+          if (content.includes('/') && content.includes('.') && content.match(/\w+\.\w+/)) continue;
+          if (content.match(/^[a-z]:\\/i)) continue;
+          if (content.match(/\b(tcp|udp|http|https|ftp|ssh|git)\b/i) && content.length < 100) continue;
+          if (content.includes('not found') || content.includes('Command') || content.includes('error') || content.includes('Error')) continue;
+          if (content.includes('zsh:') || content.includes('bash:') || content.includes('$ ') || content.includes('端口')) continue;
+          if (content.includes('<') && content.includes('>') && !content.includes('《')) continue;
+          if (!content.match(/[\u4e00-\u9fa5]/) && !content.match(/[a-zA-Z]{3,}/)) continue;
+          if (content.length < 4 || content.length > 600) continue;
+          // 只保留 user 消息和包含中文的 assistant 消息
+          if (entry.role === 'user' || content.match(/[\u4e00-\u9fa5]/)) {
+            messages.push({ role: entry.role, content: content });
+          }
         }
       } catch (e) {}
     }
