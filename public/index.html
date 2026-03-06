@@ -438,7 +438,7 @@
               <div style="color:var(--text-muted);text-align:center;padding:20px;">选择或创建一个会话开始聊天</div>
             </div>
             <div style="display:flex;gap:8px;margin-top:10px;">
-              <input type="text" id="chat-input" placeholder="输入消息..." style="flex:1;background:var(--bg-card);border:1px solid var(--border-color);border-radius:20px;padding:8px 12px;font-size:14px;color:var(--text-primary);outline:none;" onkeypress="if(event.key==='Enter')sendChatMessage()">
+              <textarea id="chat-input" placeholder="输入消息... (Enter发送, Shift+Enter换行)" style="flex:1;background:var(--bg-card);border:1px solid var(--border-color);border-radius:20px;padding:8px 12px;font-size:14px;color:var(--text-primary);outline:none;resize:none;overflow:hidden;min-height:40px;max-height:120px;line-height:1.4;" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChatMessage()}"></textarea>
               <button class="btn btn-primary" onclick="sendChatMessage()">发送</button>
             </div>
           </div>
@@ -1085,6 +1085,7 @@
       chatHistory.push({ role: 'user', content: text });
       saveChatHistory(currentChatSession.key, chatHistory);
       input.value = '';
+      input.style.height = '40px';
       
       renderChatMessages();
       
@@ -1127,6 +1128,15 @@
     
     async function initChat() {
       await loadChatSessions();
+      
+      // Auto-resize textarea
+      const chatInput = document.getElementById('chat-input');
+      if (chatInput) {
+        chatInput.addEventListener('input', function() {
+          this.style.height = '40px';
+          this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+      }
       
       // Restore last session
       const lastKey = localStorage.getItem(chatCurrentKey);

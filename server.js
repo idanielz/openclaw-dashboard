@@ -1107,10 +1107,61 @@ if (!fs.existsSync(chatMessagesDir)) {
   fs.mkdirSync(chatMessagesDir, { recursive: true });
 }
 
-// 获取聊天记录
+// 读取 OpenClaw 会话历史
+function getOpenClawMessages(key) {
+  try {
+    const sessionsFile = OPENCLAW_DIR + '/agents/main/sessions/sessions.json';
+    if (!fs.existsSync(sessionsFile)) return null;
+    
+    const sessions = JSON.parse(fs.readFileSync(sessionsFile, 'utf8'));
+    const session = sessions[key];
+    if (!session || !session.sessionFile || !fs.existsSync(session.sessionFile)) return null;
+    
+    const lines = fs.readFileSync(session.sessionFile, 'utf8').trim().split('\n');
+    const messages = [];
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        // 兼容多种格式
+        if (entry.type === 'message' && entry.message) {
+          const msg = entry.message;
+          if (msg.role && msg.content) {
+            // content 可能是数组（多模态）或是字符串
+            let content = msg.content;
+            if (Array.isArray(content)) {
+              content = content.map(c => c.type === 'text' ? c.text : `[${c.type}]`).join('');
+            }
+            messages.push({ role: msg.role, content: content });
+          }
+        } else if (entry.role && entry.content) {
+          // 直接是消息格式
+          let content = entry.content;
+          if (Array.isArray(content)) {
+            content = content.map(c => c.type === 'text' ? c.text : `[${c.type}]`).join('');
+          }
+          messages.push({ role: entry.role, content: content });
+        }
+      } catch (e) {}
+    }
+    return messages.length > 0 ? messages : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// 获取聊天记录（优先从 OpenClaw 读取）
 app.get('/api/chat/messages/:key', async (req, res) => {
   try {
     const { key } = req.params;
+    
+    // 1. 优先从 OpenClaw 读取（针对 telegram 会话）
+    const openclawMsgs = getOpenClawMessages(key);
+    if (openclawMsgs) {
+      res.json(openclawMsgs);
+      return;
+    }
+    
+    // 2. 从 Dashboard 本地存储读取
     const filePath = chatMessagesDir + '/' + key.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json';
     if (fs.existsSync(filePath)) {
       const messages = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -1123,11 +1174,18 @@ app.get('/api/chat/messages/:key', async (req, res) => {
   }
 });
 
-// 保存聊天记录
+// 保存聊天记录（只保存网页会话，Telegram 会话直接用 OpenClaw 的历史）
 app.post('/api/chat/messages/:key', async (req, res) => {
   try {
     const { key } = req.params;
     const { messages } = req.body;
+    
+    // 只保存网页会话的消息，Telegram 会话直接用 OpenClaw 的历史
+    if (key.includes('telegram')) {
+      res.json({ success: true, note: 'telegram session uses openclaw history' });
+      return;
+    }
+    
     const filePath = chatMessagesDir + '/' + key.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json';
     fs.writeFileSync(filePath, JSON.stringify(messages, null, 2));
     res.json({ success: true });
