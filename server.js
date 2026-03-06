@@ -36,6 +36,13 @@ function readFile(filePath) {
   }
 }
 
+// API: Version
+app.get('/api/version', (req, res) => {
+  const versionFile = WORKSPACE_DIR + '/openclaw-dashboard/version.txt';
+  const version = readFile(versionFile) || '1.0.0';
+  res.json({ version: version.trim() });
+});
+
 // API: OpenClaw Status
 app.get('/api/status', async (req, res) => {
   try {

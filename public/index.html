@@ -299,7 +299,7 @@
     <header class="header">
       <div class="header-left">
         <div class="logo">🦞</div>
-        <h1 id="page-title">小虾米 <span style="font-size:12px;font-weight:normal;color:var(--text-muted);">v2.6.0</span></h1>
+        <h1 id="page-title">小虾米 <span style="font-size:12px;font-weight:normal;color:var(--text-muted);">v2.6.1</span></h1>
       </div>
 
     </header>
@@ -559,10 +559,16 @@
 
     // Status
     async function loadStatus() {
-      const [statusData, weatherData] = await Promise.all([
+      const [statusData, weatherData, versionData] = await Promise.all([
         api('/api/status'),
-        api('/api/weather')
+        api('/api/weather'),
+        api('/api/version').catch(() => ({version: '1.0.0'}))
       ]);
+      
+      // Update header version
+      if (versionData?.version) {
+        document.getElementById('page-title').innerHTML = '小虾米 <span style="font-size:12px;font-weight:normal;color:var(--text-muted);">' + versionData.version + '</span>';
+      }
       
       if (!statusData.error) {
         document.getElementById('gw-status').textContent = statusData.gatewayStatus === 'running' ? '运行中' : '已停止';
