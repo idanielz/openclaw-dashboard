@@ -689,9 +689,22 @@ app.post('/api/backup', async (req, res) => {
     }
     
     const now = new Date();
-    const desc = `日常备份（${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}）`;
+    const timestamp = `${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
+    const desc = `日常备份（${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${timestamp}）`;
     
-    const cmd = `cd "${OPENCLAW_DIR}" && git add -A && git commit -m "${desc}" 2>&1`;
+    // Check if there are changes, if not amend current commit
+    const statusCmd = `cd "${OPENCLAW_DIR}" && git status --porcelain`;
+    const status = await execAsync(statusCmd).catch(() => '');
+    
+    let cmd;
+    if (status && status.trim()) {
+      cmd = `cd "${OPENCLAW_DIR}" && git add -A && git commit -m "${desc}" 2>&1`;
+    } else {
+      // No changes, amend current commit with new timestamp
+      const lastHash = await execAsync(`cd "${OPENCLAW_DIR}" && git rev-parse HEAD`).catch(() => '').trim();
+      const lastMsg = await execAsync(`cd "${OPENCLAW_DIR}" && git log -1 --format="%s"`).catch(() => '').trim();
+      cmd = `cd "${OPENCLAW_DIR}" && git commit --amend -m "${lastMsg} +${timestamp}" 2>&1`;
+    }
     const output = await execAsync(cmd).catch(e => e.message);
     
     res.json({ success: true, message: '备份成功', output: output.substring(0, 1000) });
