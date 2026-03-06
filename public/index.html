@@ -42,10 +42,11 @@
       pointer-events: none;
       z-index: -1;
     }
-    .container { width: 100%; max-width: 100%; margin: 0 auto; padding: 8px; padding-bottom: 40px; box-sizing: border-box; }
+    .container { width: 100%; max-width: 100%; margin: 0 auto; padding: 8px; padding-top: 120px; padding-bottom: 40px; box-sizing: border-box; }
     .header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 0; margin-bottom: 8px; border-bottom: 1px solid var(--border-color);
+      padding: 8px 16px; border-bottom: 1px solid var(--border-color);
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--bg-primary);
     }
     .header-left { display: flex; align-items: center; gap: 12px; }
     .logo {
@@ -67,7 +68,7 @@
     .tabs {
       display: flex; gap: 4px; background: var(--bg-secondary); padding: 4px;
       border-radius: var(--radius-md); margin-bottom: 8px; overflow-x: auto;
-      justify-content: space-evenly;
+      justify-content: space-evenly; position: fixed; top: 60px; left: 0; right: 0; z-index: 999;
     }
     .tab {
       flex: 1; text-align: center; padding: 10px 16px; font-size: 13px; font-weight: 500; color: var(--text-secondary);
@@ -298,7 +299,7 @@
     <header class="header">
       <div class="header-left">
         <div class="logo">🦞</div>
-        <h1>小虾米</h1>
+        <h1 id="page-title">小虾米 <span style="font-size:12px;font-weight:normal;color:var(--text-muted);">v2.6.0</span></h1>
       </div>
       <button class="btn-icon" onclick="refreshAll()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -432,11 +433,11 @@
           </div>
         </div>
         <div class="chat-drawer-overlay" id="chat-drawer-overlay" onclick="toggleChatDrawer()"></div>
-        <div class="chat-container" style="display:flex;flex-direction:column;height:calc(100vh - 140px);">
+        <div class="chat-container" style="display:flex;flex-direction:column;height:calc(100vh - 180px);position:relative;">
           <div id="chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;padding:10px;">
             <div style="color:var(--text-muted);text-align:center;padding:20px;">选择或创建一个会话开始聊天</div>
           </div>
-          <div class="chat-input-area" style="display:flex;gap:8px;padding:10px;background:var(--bg-secondary);border-top:1px solid var(--border-color);flex-shrink:0;">
+          <div class="chat-input-area" style="display:flex;gap:8px;padding:10px;background:var(--bg-secondary);border-top:1px solid var(--border-color);flex-shrink:0;position:sticky;bottom:0;">
             <textarea id="chat-input" placeholder="输入消息... (Enter发送, Shift+Enter换行)" style="flex:1;background:var(--bg-card);border:1px solid var(--border-color);border-radius:20px;padding:8px 12px;font-size:14px;color:var(--text-primary);outline:none;resize:none;overflow:hidden;min-height:40px;max-height:120px;line-height:1.4;" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChatMessage()}"></textarea>
             <button class="btn btn-primary" onclick="sendChatMessage()" style="flex-shrink:0;">发送</button>
           </div>
@@ -539,6 +540,17 @@
       }
     }
 
+    // Tab names
+    const tabNames = {
+      'dashboard': '',
+      'cron': '定时任务',
+      'sessions': '会话',
+      'skills': 'Skills',
+      'config': '配置',
+      'logs': '日志',
+      'chat': '聊天'
+    };
+    
     // Tabs
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -547,6 +559,9 @@
         tab.classList.add('active');
         document.getElementById('section-' + tab.dataset.tab).classList.add('active');
         currentTab = tab.dataset.tab;
+        // Update title
+        const tabName = tabNames[currentTab] || '';
+        document.getElementById('page-title').innerHTML = '小虾米 <span style="font-size:12px;font-weight:normal;color:var(--text-muted);">v2.6.0</span>' + (tabName ? ' - ' + tabName : '');
         if (currentTab === 'logs') loadLogs();
         if (currentTab === 'chat') initChat();
       });
@@ -1060,6 +1075,10 @@
       
       // 更新顶部会话名
       document.getElementById('chat-current-name').textContent = '💬 ' + session.name;
+      // 更新页面标题
+      if (currentTab === 'chat') {
+        document.getElementById('page-title').textContent = '小虾米 - 聊天 | ' + session.name;
+      }
       
       renderChatMessages();
       renderChatSessions();
@@ -1182,6 +1201,7 @@
           currentChatSession = session;
           chatHistory = await loadChatHistory(lastKey);
           document.getElementById('chat-current-name').textContent = '💬 ' + session.name;
+          document.getElementById('page-title').textContent = '小虾米 - 聊天 | ' + session.name;
           renderChatMessages();
           renderChatSessions();
           return;
@@ -1194,6 +1214,7 @@
         localStorage.setItem(chatCurrentKey, firstSession.key);
         chatHistory = await loadChatHistory(firstSession.key);
         document.getElementById('chat-current-name').textContent = '💬 ' + firstSession.name;
+        document.getElementById('page-title').textContent = '小虾米 - 聊天 | ' + firstSession.name;
         renderChatMessages();
         renderChatSessions();
       }
