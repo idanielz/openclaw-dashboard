@@ -703,11 +703,14 @@ app.post('/api/backup', express.json(), async (req, res) => {
       cmd = `cd "${OPENCLAW_DIR}" && git add -A && git commit -m "${desc}" 2>&1`;
     } else {
       // 无改动，amend
-      const lastMsg = await execAsync(`cd "${OPENCLAW_DIR}" && git log -1 --format="%s"`).catch(() => '').trim();
+      const lastMsg = (await execAsync(`cd "${OPENCLAW_DIR}" && git log -1 --format="%s"`).catch(() => '')).trim();
       desc = customMsg ? `${lastMsg} + ${customMsg}` : `${lastMsg} +${timestamp}`;
       cmd = `cd "${OPENCLAW_DIR}" && git commit --amend -m "${desc}" 2>&1`;
     }
     const output = await execAsync(cmd).catch(e => e.message);
+    
+    // Push to remote
+    const pushOutput = await execAsync(`cd "${OPENCLAW_DIR}" && git push 2>&1`).catch(() => '');
     
     res.json({ success: true, message: '备份成功', output: output.substring(0, 1000) });
   } catch (error) {
