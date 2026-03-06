@@ -338,18 +338,15 @@
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div style="flex:1;">
             <div style="font-size:12px;color:rgba(255,255,255,0.7);">🌤️ 北京天气</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span style="font-size:32px;font-weight:700;color:#fff;" id="weather-temp">--°</span>
+              <span style="font-size:16px;color:rgba(255,255,255,0.8);" id="weather-desc">加载中...</span>
+            </div>
             <div style="display:flex;align-items:center;justify-content:space-between;">
-              <div style="display:flex;align-items:center;gap:6px;">
-                <span style="font-size:28px;">🌡️</span>
-                <span style="font-size:32px;font-weight:700;color:#fff;" id="weather-temp">--°</span>
-                <span style="font-size:14px;color:rgba(255,255,255,0.8);" id="weather-desc">加载中...</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:24px;" id="weather-icon">⛅</span>
-                <div style="display:flex;flex-direction:column;font-size:11px;color:rgba(255,255,255,0.7);">
-                  <span>💧 <span id="weather-humidity">--</span>%</span>
-                  <span>🤒 <span id="weather-feels">--</span>°</span>
-                </div>
+              <span style="font-size:24px;" id="weather-icon">⛅</span>
+              <div style="display:flex;gap:16px;font-size:12px;color:rgba(255,255,255,0.8);">
+                <span>💧 <span id="weather-humidity">--</span>%</span>
+                <span>🤒 体感<span id="weather-feels">--</span>°</span>
               </div>
             </div>
         </div>
