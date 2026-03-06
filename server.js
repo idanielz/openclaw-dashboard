@@ -709,10 +709,7 @@ app.post('/api/backup', express.json(), async (req, res) => {
     }
     const output = await execAsync(cmd).catch(e => e.message);
     
-    // Push to remote
-    const pushOutput = await execAsync(`cd "${OPENCLAW_DIR}" && git push 2>&1`).catch(() => '');
-    
-    res.json({ success: true, message: '备份成功', output: output.substring(0, 1000) });
+    res.json({ success: true, message: '备份成功（本地）', output: output.substring(0, 1000) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
