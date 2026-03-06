@@ -1669,10 +1669,35 @@
     }
 
     async function createBackup() {
-      if (!confirm('确定创建备份吗？（Git commit）')) return;
-      const res = await fetch(API_BASE + '/api/backup', { method: 'POST' });
-      const data = await res.json();
-      showToast(data.success ? '备份成功' : '备份失败');
+      // 先检查改动状态
+      const statusRes = await fetch(API_BASE + '/api/backup/status');
+      const statusData = await statusRes.json();
+      
+      if (statusData.error) {
+        showToast(statusData.error);
+        return;
+      }
+      
+      if (statusData.hasChanges) {
+        // 有改动，展示改动文件，让用户输入 commit message
+        const fileList = statusData.files.map(f => `${f.status} ${f.file}`).join('\n');
+        const commitMsg = prompt('有改动！\n\n' + fileList + '\n\n输入 commit 信息:');
+        if (!commitMsg) return;
+        
+        const res = await fetch(API_BASE + '/api/backup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: commitMsg })
+        });
+        const data = await res.json();
+        showToast(data.success ? '备份成功' : '备份失败: ' + (data.error || ''));
+      } else {
+        // 无改动
+        if (!confirm('暂无改动，确定创建备份吗？')) return;
+        const res = await fetch(API_BASE + '/api/backup', { method: 'POST' });
+        const data = await res.json();
+        showToast(data.success ? '备份成功' : '备份失败: ' + (data.error || ''));
+      }
       loadBackups();
     }
 

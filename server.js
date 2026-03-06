@@ -681,33 +681,62 @@ async function checkGitConfig() {
   }
 }
 
-app.post('/api/backup', async (req, res) => {
+app.post('/api/backup', express.json(), async (req, res) => {
   try {
-    const gitCheck = checkGitConfig();
+    const gitCheck = await checkGitConfig();
     if (!gitCheck.configured) {
       return res.status(400).json({ error: gitCheck.message });
     }
     
+    const { message: customMsg } = req.body || {};
     const now = new Date();
     const timestamp = `${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
-    const desc = `日常备份（${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${timestamp}）`;
     
     // Check if there are changes, if not amend current commit
     const statusCmd = `cd "${OPENCLAW_DIR}" && git status --porcelain`;
     const status = await execAsync(statusCmd).catch(() => '');
     
-    let cmd;
+    let cmd, desc;
     if (status && status.trim()) {
+      // 有改动
+      desc = customMsg || `日常备份（${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${timestamp}）`;
       cmd = `cd "${OPENCLAW_DIR}" && git add -A && git commit -m "${desc}" 2>&1`;
     } else {
-      // No changes, amend current commit with new timestamp
-      const lastHash = await execAsync(`cd "${OPENCLAW_DIR}" && git rev-parse HEAD`).catch(() => '').trim();
+      // 无改动，amend
       const lastMsg = await execAsync(`cd "${OPENCLAW_DIR}" && git log -1 --format="%s"`).catch(() => '').trim();
-      cmd = `cd "${OPENCLAW_DIR}" && git commit --amend -m "${lastMsg} +${timestamp}" 2>&1`;
+      desc = customMsg ? `${lastMsg} + ${customMsg}` : `${lastMsg} +${timestamp}`;
+      cmd = `cd "${OPENCLAW_DIR}" && git commit --amend -m "${desc}" 2>&1`;
     }
     const output = await execAsync(cmd).catch(e => e.message);
     
     res.json({ success: true, message: '备份成功', output: output.substring(0, 1000) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Backup - Check status
+app.get('/api/backup/status', async (req, res) => {
+  try {
+    const gitCheck = await checkGitConfig();
+    if (!gitCheck.configured) {
+      return res.status(400).json({ error: gitCheck.message });
+    }
+    
+    const statusCmd = `cd "${OPENCLAW_DIR}" && git status --porcelain`;
+    const status = await execAsync(statusCmd).catch(() => '');
+    
+    if (status && status.trim()) {
+      // 有改动，返回改动文件列表
+      const files = status.split('\n').filter(l => l.trim()).map(l => {
+        const prefix = l.substring(0, 2);
+        const file = l.substring(3);
+        return { status: prefix.trim(), file };
+      });
+      res.json({ hasChanges: true, files });
+    } else {
+      res.json({ hasChanges: false, files: [] });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
