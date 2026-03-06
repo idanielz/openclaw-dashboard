@@ -507,9 +507,7 @@
             <button class="btn btn-sm view-mode-btn active" data-mode="json" onclick="toggleConfigView('json')">JSON</button>
             <button class="btn btn-sm view-mode-btn" data-mode="form" onclick="toggleConfigView('form')">表单</button>
           </div>
-          <button class="btn btn-secondary" onclick="validateConfig()">✓ 验证</button>
-          <button class="btn btn-primary" onclick="saveConfig()">💾 保存</button>
-          <button class="btn btn-warning" id="apply-form-btn" style="display:none;" onclick="applyFormChanges()">✓ 应用更改</button>
+          <button class="btn btn-primary" id="save-config-btn" onclick="saveConfig()">💾 保存并应用修改</button>
         </div>
         <div id="config-form-view" style="display:none;"></div>
         <textarea id="config-content" style="width:100%;min-height:400px;resize:none;background:#0a0a0f;color:#e0e0e0;border:1px solid #2d2d3a;"></textarea>
@@ -1473,14 +1471,44 @@
     }
 
     async function saveConfig() {
-      const content = document.getElementById('config-content').value;
+      let content = document.getElementById('config-content').value;
+      
+      // 如果是表单模式，先应用表单更改
+      if (configViewMode === 'form') {
+        try {
+          const config = JSON.parse(content);
+          document.querySelectorAll('.form-field input, .form-field select').forEach(el => {
+            const path = el.dataset.path;
+            let value = el.type === 'checkbox' ? el.checked : el.value;
+            if (el.type === 'number') value = parseInt(value);
+            setNestedValue(config, path, value);
+          });
+          content = JSON.stringify(config, null, 2);
+          document.getElementById('config-content').value = content;
+        } catch (e) {
+          showToast('✗ JSON格式错误: ' + e.message);
+          return;
+        }
+      }
+      
+      // 校验 JSON
+      if (currentConfig.endsWith('.json')) {
+        try {
+          JSON.parse(content);
+        } catch (e) {
+          showToast('✗ JSON格式错误，无法保存: ' + e.message);
+          return;
+        }
+      }
+      
+      // 保存
       const res = await fetch(API_BASE + '/api/config/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: currentConfig, content })
       });
       const data = await res.json();
-      showToast(data.success ? '配置已保存' : '保存失败');
+      showToast(data.success ? '✓ 配置已保存' : '✗ 保存失败');
     }
 
     function validateConfig() {
