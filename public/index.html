@@ -540,17 +540,6 @@
       }
     }
 
-    // Tab names
-    const tabNames = {
-      'dashboard': '',
-      'cron': '定时任务',
-      'sessions': '会话',
-      'skills': 'Skills',
-      'config': '配置',
-      'logs': '日志',
-      'chat': '聊天'
-    };
-    
     // Tabs
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -559,9 +548,8 @@
         tab.classList.add('active');
         document.getElementById('section-' + tab.dataset.tab).classList.add('active');
         currentTab = tab.dataset.tab;
-        // Update title
-        const tabName = tabNames[currentTab] || '';
-        document.getElementById('page-title').innerHTML = '小虾米 <span style="font-size:12px;font-weight:normal;color:var(--text-muted);">v2.6.0</span>' + (tabName ? ' - ' + tabName : '');
+        // Scroll to top
+        window.scrollTo(0, 0);
         if (currentTab === 'logs') loadLogs();
         if (currentTab === 'chat') initChat();
       });
