@@ -716,7 +716,7 @@ app.post('/api/backup', async (req, res) => {
 // API: Backup - List (Git log)
 app.get('/api/backups', async (req, res) => {
   try {
-    const cmd = `cd "${OPENCLAW_DIR}" && git log --oneline -20 2>&1`;
+    const cmd = `cd "${OPENCLAW_DIR}" && git log --oneline -5 2>&1`;
     const output = await execAsync(cmd).catch(() => '');
     
     const commits = String(output).split('\n').filter(l => l.trim()).map(line => {
