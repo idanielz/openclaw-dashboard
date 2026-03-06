@@ -582,7 +582,7 @@ app.get('/api/weather', (req, res) => {
 app.get('/api/logs', async (req, res) => {
   try {
     const { lines = 200, file = 'gateway.log', filter = '' } = req.query;
-    const logFile = OPENCLAW_DIR + '/logs/' + file;
+    const logFile = OPENCLAW_DIR + '/tmp/logs/' + file;
     
     if (fs.existsSync(logFile)) {
       let content = fs.readFileSync(logFile, 'utf8');

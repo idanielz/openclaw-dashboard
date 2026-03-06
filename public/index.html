@@ -210,7 +210,7 @@
       display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
     }
     .backup-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-    .backup-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+    .backup-name { font-weight: 500; font-size: 13px; }
     .backup-time { font-size: 11px; color: var(--text-muted); }
     .backup-actions { display: flex; gap: 6px; flex-shrink: 0; }
     
@@ -277,6 +277,7 @@
       #chat-input { padding: 6px 10px !important; font-size: 13px !important; min-height: 36px !important; }
       .section { padding: 4px; }
       .card { padding: 8px !important; }
+      .backup-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
     }
     
     .toast {
