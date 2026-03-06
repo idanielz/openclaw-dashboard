@@ -1353,10 +1353,11 @@
     };
     
     let configViewMode = 'json'; // 'json' or 'form'
+    let configsData = []; // 缓存配置数据
     
     async function loadConfigs() {
-      const data = await api('/api/configs');
-      const cfg = data.find(c => c.id === currentConfig);
+      configsData = await api('/api/configs');
+      const cfg = configsData.find(c => c.id === currentConfig);
       if (cfg) {
         document.getElementById('config-content').value = cfg.content || '';
         // Show/hide form view based on config type
@@ -1436,7 +1437,7 @@
         textarea.style.display = 'none';
         applyBtn.style.display = 'inline-block';
         // Render form view
-        const cfg = configs[currentConfig];
+        const cfg = configsData.find(c => c.id === currentConfig);
         if (cfg && configSchemas[currentConfig]) {
           renderFormView(cfg.content);
         }
