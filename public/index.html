@@ -242,7 +242,7 @@
       margin-bottom: 10px;
     }
     .session-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-    .session-name { font-weight: 500; font-size: 14px; }
+    .session-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: visible; }
     .session-badge {
       padding: 2px 8px; font-size: 10px; border-radius: 10px; background: var(--accent-primary); color: white;
     }
@@ -278,6 +278,7 @@
       .section { padding: 4px; }
       .card { padding: 8px !important; }
       .backup-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+      .session-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
     }
     
     .toast {
@@ -771,7 +772,7 @@
           const sizeKB = (s.size / 1024).toFixed(1);
           html += `<div class="session-item">
             <div class="session-header">
-              <span class="session-name">${s.id.substring(0, 20)}...</span>
+              <span class="session-name">${s.id}</span>
               <span class="session-badge ${s.isDeleted ? 'deleted' : s.type === 'topic' ? 'topic' : ''}">${s.type}</span>
             </div>
             <div class="cron-details">
