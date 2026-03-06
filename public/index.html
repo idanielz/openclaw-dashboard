@@ -864,7 +864,27 @@
     const chatStorageKey = 'oc_chat_history';
     const chatCurrentKey = 'oc_chat_current';
     
-    function loadChatHistory(key) {
+    async function loadChatHistory(key) {
+      // 优先从服务器获取
+      try {
+        const res = await fetch('/api/chat/messages/' + encodeURIComponent(key));
+        if (res.ok) {
+          const serverMessages = await res.json();
+          if (serverMessages.length > 0) {
+            // 同步到本地缓存
+            try {
+              const data = localStorage.getItem(chatStorageKey);
+              const all = data ? JSON.parse(data) : {};
+              all[key] = serverMessages;
+              localStorage.setItem(chatStorageKey, JSON.stringify(all));
+            } catch (e) {}
+            return serverMessages;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load from server:', e);
+      }
+      // 服务器没有则从本地获取
       try {
         const data = localStorage.getItem(chatStorageKey);
         if (data) {
@@ -875,13 +895,24 @@
       return [{ role: 'system', content: 'You are a helpful AI assistant.' }];
     }
     
-    function saveChatHistory(key, history) {
+    async function saveChatHistory(key, history) {
+      // 保存到本地
       try {
         const data = localStorage.getItem(chatStorageKey);
         const all = data ? JSON.parse(data) : {};
         all[key] = history;
         localStorage.setItem(chatStorageKey, JSON.stringify(all));
       } catch (e) {}
+      // 同步保存到服务器
+      try {
+        await fetch('/api/chat/messages/' + encodeURIComponent(key), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: history })
+        });
+      } catch (e) {
+        console.error('Failed to save to server:', e);
+      }
     }
     
     function escapeHtml(text) {
@@ -957,8 +988,20 @@
       try {
         const res = await fetch('/api/chat/sessions/' + key, { method: 'DELETE' });
         if (!res.ok) throw new Error('删除失败');
+        // 删除服务器上的聊天记录
+        try {
+          await fetch('/api/chat/messages/' + encodeURIComponent(key), { method: 'DELETE' });
+        } catch (e) {}
+        // 删除本地缓存
         chatSessions = chatSessions.filter(s => s.key !== key);
-        localStorage.removeItem(chatStorageKey + '_' + key);
+        try {
+          const data = localStorage.getItem(chatStorageKey);
+          if (data) {
+            const all = JSON.parse(data);
+            delete all[key];
+            localStorage.setItem(chatStorageKey, JSON.stringify(all));
+          }
+        } catch (e) {}
         if (currentChatSession && currentChatSession.key === key) {
           currentChatSession = null;
           localStorage.removeItem(chatCurrentKey);
@@ -968,7 +1011,7 @@
       } catch (e) { alert('删除失败: ' + e.message); }
     }
     
-    function selectChatSession(key) {
+    async function selectChatSession(key) {
       // Save current history
       if (currentChatSession && currentChatSession.key && chatHistory.length > 0) {
         saveChatHistory(currentChatSession.key, chatHistory);
@@ -979,7 +1022,7 @@
       
       currentChatSession = session;
       localStorage.setItem(chatCurrentKey, key);
-      chatHistory = loadChatHistory(key);
+      chatHistory = await loadChatHistory(key);
       
       // 更新顶部会话名
       document.getElementById('chat-current-name').textContent = '💬 ' + session.name;

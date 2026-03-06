@@ -1101,6 +1101,55 @@ app.post('/api/chat/completions', async (req, res) => {
   }
 });
 
+// 聊天记录存储目录
+const chatMessagesDir = WORKSPACE_DIR + '/openclaw-chat-web/messages';
+if (!fs.existsSync(chatMessagesDir)) {
+  fs.mkdirSync(chatMessagesDir, { recursive: true });
+}
+
+// 获取聊天记录
+app.get('/api/chat/messages/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    const filePath = chatMessagesDir + '/' + key.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json';
+    if (fs.existsSync(filePath)) {
+      const messages = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      res.json(messages);
+    } else {
+      res.json([]);
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 保存聊天记录
+app.post('/api/chat/messages/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { messages } = req.body;
+    const filePath = chatMessagesDir + '/' + key.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json';
+    fs.writeFileSync(filePath, JSON.stringify(messages, null, 2));
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 删除聊天记录
+app.delete('/api/chat/messages/:key', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const filePath = chatMessagesDir + '/' + key.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json';
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ========== Start server ==========
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`OpenClaw Dashboard running on http://0.0.0.0:${PORT}`);
