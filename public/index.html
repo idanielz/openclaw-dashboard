@@ -501,12 +501,12 @@
           <button class="config-tab" onclick="switchConfig('USER.md', this)">USER.md</button>
           <button class="config-tab" onclick="switchConfig('MEMORY.md', this)">MEMORY.md</button>
         </div>
-        <div class="config-actions">
-          <div class="view-mode-group">
+        <div class="config-actions" id="config-actions">
+          <div class="view-mode-group" id="view-mode-group" style="display:none;">
             <button class="btn btn-sm view-mode-btn active" data-mode="json" onclick="toggleConfigView('json')">JSON</button>
             <button class="btn btn-sm view-mode-btn" data-mode="form" onclick="toggleConfigView('form')">表单</button>
           </div>
-          <button class="btn btn-primary" id="save-config-btn" onclick="saveConfig()">💾 保存并应用修改</button>
+          <button class="btn btn-primary" id="save-config-btn" onclick="saveConfig()" style="margin:0 auto;">💾 保存并应用修改</button>
         </div>
         <div id="config-form-view" style="display:none;"></div>
         <textarea id="config-content" style="width:100%;min-height:400px;resize:none;background:#0a0a0f;color:#e0e0e0;border:1px solid #2d2d3a;"></textarea>
@@ -1573,6 +1573,15 @@
       currentConfig = id;
       document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
+      
+      // Show/hide view mode buttons based on file type
+      const viewModeGroup = document.getElementById('view-mode-group');
+      if (id.endsWith('.json')) {
+        viewModeGroup.style.display = 'flex';
+      } else {
+        viewModeGroup.style.display = 'none';
+      }
+      
       loadConfigs();
     }
 
