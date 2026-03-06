@@ -1430,17 +1430,21 @@
       
       const textarea = document.getElementById('config-content');
       const applyBtn = document.getElementById('apply-form-btn');
+      const formView = document.getElementById('config-form-view');
       
       if (mode === 'form') {
         textarea.style.display = 'none';
         applyBtn.style.display = 'inline-block';
+        // Render form view
+        const cfg = configs[currentConfig];
+        if (cfg && configSchemas[currentConfig]) {
+          renderFormView(cfg.content);
+        }
       } else {
         textarea.style.display = 'block';
         applyBtn.style.display = 'none';
-        document.getElementById('config-form-view').style.display = 'none';
+        formView.style.display = 'none';
       }
-      
-      loadConfigs();
     }
     
     function applyFormChanges() {
