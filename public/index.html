@@ -209,10 +209,10 @@
       padding: 12px; background: var(--bg-secondary); border-radius: var(--radius-md);
       display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
     }
-    .backup-info { flex: 1; }
-    .backup-name { font-weight: 500; font-size: 13px; }
+    .backup-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .backup-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
     .backup-time { font-size: 11px; color: var(--text-muted); }
-    .backup-actions { display: flex; gap: 6px; }
+    .backup-actions { display: flex; gap: 6px; flex-shrink: 0; }
     
     /* Skills */
     .skill-item {
@@ -1474,6 +1474,13 @@
         } else {
           formView.style.display = 'none';
         }
+      }
+      // Show/hide view mode buttons based on file type
+      const viewModeGroup = document.getElementById('view-mode-group');
+      if (currentConfig.endsWith('.json')) {
+        viewModeGroup.style.display = 'flex';
+      } else {
+        viewModeGroup.style.display = 'none';
       }
     }
     
