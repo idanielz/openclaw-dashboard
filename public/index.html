@@ -1428,12 +1428,10 @@
       document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
       
       const textarea = document.getElementById('config-content');
-      const applyBtn = document.getElementById('apply-form-btn');
       const formView = document.getElementById('config-form-view');
       
       if (mode === 'form') {
         textarea.style.display = 'none';
-        applyBtn.style.display = 'inline-block';
         // Render form view
         const cfg = configsData.find(c => c.id === currentConfig);
         if (cfg && configSchemas[currentConfig]) {
@@ -1441,7 +1439,6 @@
         }
       } else {
         textarea.style.display = 'block';
-        applyBtn.style.display = 'none';
         formView.style.display = 'none';
       }
     }
