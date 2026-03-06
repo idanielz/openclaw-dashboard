@@ -59,6 +59,18 @@ OPENWEATHERMAP_TOKEN=你的Token node server.js
 |---------|------|
 | `OPENWEATHERMAP_TOKEN` | OpenWeatherMap API Key（可选）|
 
+### ⚙️ 自定义路径（如有差异请修改 server.js）
+
+| 配置项 | 默认路径 | 说明 |
+|--------|---------|------|
+| OpenClaw 根目录 | `~/.openclaw` | `HOME + '/.openclaw'` |
+| 日志目录 | `~/.openclaw/tmp/logs/` | 日志文件目录 |
+| Telegram 数据 | `~/.openclaw/telegram/` | Telegram 会话数据 |
+| 会话目录 | `~/.openclaw/agents/main/sessions/` | OpenClaw 会话 |
+| 工作空间 | `~/.openclaw/workspace/` | 配置文件等 |
+
+> ⚠️ 如你的环境路径不同，需修改 `server.js` 中的 `OPENCLAW_DIR` 常量
+
 ### 访问
 
 - 本地：`http://localhost:18790`
