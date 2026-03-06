@@ -666,13 +666,14 @@ app.get('/api/configs', (req, res) => {
   }
 });
 
-// API: Backup - Create (using OpenClaw's official backup)
+// API: Backup - Create (Git commit)
 app.post('/api/backup', async (req, res) => {
   try {
-    const { description } = req.body || {};
-    const descArg = description ? `'${description}'` : '';
-    const cmd = `/bin/zsh -l -c "cd ${OPENCLAW_DIR}/scripts && ./backup_config.sh ${descArg}" 2>&1`;
-    const output = await execAsync(cmd);
+    const now = new Date();
+    const desc = `日常备份（${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}）`;
+    
+    const cmd = `cd "${OPENCLAW_DIR}" && git add -A && git commit -m "${desc}" 2>&1`;
+    const output = await execAsync(cmd).catch(e => e.message);
     
     res.json({ success: true, message: '备份成功', output: output.substring(0, 1000) });
   } catch (error) {
@@ -680,85 +681,47 @@ app.post('/api/backup', async (req, res) => {
   }
 });
 
-// API: Backup - List (official OpenClaw backups)
-app.get('/api/backups', (req, res) => {
+// API: Backup - List (Git log)
+app.get('/api/backups', async (req, res) => {
   try {
-    const backupDir = OPENCLAW_DIR + '/backup';
-    let backups = [];
+    const cmd = `cd "${OPENCLAW_DIR}" && git log --oneline -20 2>&1`;
+    const output = await execAsync(cmd).catch(() => '');
     
-    if (fs.existsSync(backupDir)) {
-      const files = fs.readdirSync(backupDir)
-        .filter(f => f.startsWith('config_backup_') && (f.endsWith('.tar.gz') || f.endsWith('.zip')))
-        .sort()
-        .reverse()
-        .slice(0, 10); // Latest 10 backups
-      
-      backups = files.map(f => {
-        const stats = fs.statSync(path.join(backupDir, f));
-        // Try to read description from filename
-        const descMatch = f.match(/config_backup_\d{8}_\d{4}(?:_(.*))?\./);
-        const description = descMatch && descMatch[1] ? decodeURIComponent(descMatch[1]) : '';
-        
-        return {
-          name: f,
-          description: description,
-          size: (stats.size / 1024).toFixed(1) + ' KB',
-          created: stats.mtime.toISOString()
-        };
-      });
-    }
+    const commits = String(output).split('\n').filter(l => l.trim()).map(line => {
+      const match = line.match(/^([a-f0-9]+)\s+(.+)$/);
+      if (match) {
+        return { name: match[1], description: match[2] };
+      }
+      return null;
+    }).filter(c => c);
     
-    res.json(backups);
+    res.json(commits);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// API: Backup - Details (including changelog)
+// API: Backup - Details (Git show)
 app.get('/api/backup/:name/details', async (req, res) => {
   try {
     const { name } = req.params;
-    const backupDir = OPENCLAW_DIR + '/backup';
-    const backupFile = path.join(backupDir, name);
+    const cmd = `cd "${OPENCLAW_DIR}" && git show ${name} --stat --format="%H%n%an%n%ae%n%ci%n%s%n---%b" 2>&1 | head -50`;
+    const output = await execAsync(cmd).catch(() => '');
     
-    if (!fs.existsSync(backupFile)) {
-      return res.status(404).json({ error: '备份文件不存在' });
-    }
-    
-    // Extract changelog from backup
-    const changelogCmd = `tar -xzf "${backupFile}" -O "${name.replace('.tar.gz', '')}/CHANGELOG.md" 2>/dev/null || echo "无变更日志"`;
-    let changelog = await execAsync(changelogCmd).catch(() => '无变更日志');
-    
-    // Get file list
-    const listCmd = `tar -tzf "${backupFile}" | head -30`;
-    const fileList = await execAsync(listCmd).catch(() => '');
-    
-    res.json({
-      name,
-      changelog: changelog.substring(0, 2000),
-      fileList: fileList.split('\n').slice(0, 20)
-    });
+    res.json({ name, details: output.substring(0, 2000) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// API: Backup - Restore
+// API: Backup - Restore (Git checkout)
 app.post('/api/backup/:name/restore', async (req, res) => {
   try {
     const { name } = req.params;
-    const backupDir = OPENCLAW_DIR + '/backup';
-    const backupFile = path.join(backupDir, name);
+    const cmd = `cd "${OPENCLAW_DIR}" && git checkout ${name} -- . 2>&1`;
+    const output = await execAsync(cmd).catch(e => e.message);
     
-    if (!fs.existsSync(backupFile)) {
-      return res.status(404).json({ error: '备份文件不存在' });
-    }
-    
-    // Restore the backup
-    const restoreCmd = `cd "${OPENCLAW_DIR}" && tar -xzf "${backupFile}" -C . 2>&1`;
-    const output = await execAsync(restoreCmd);
-    
-    res.json({ success: true, message: '备份已恢复', output: output.substring(0, 1000) });
+    res.json({ success: true, message: '恢复成功', output: output.substring(0, 1000) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
