@@ -1061,7 +1061,7 @@
       document.getElementById('chat-current-name').textContent = '💬 ' + session.name;
       // 更新页面标题
       if (currentTab === 'chat') {
-        document.getElementById('page-title').textContent = '小虾米 - 聊天 | ' + session.name;
+        
       }
       
       renderChatMessages();
@@ -1185,7 +1185,7 @@
           currentChatSession = session;
           chatHistory = await loadChatHistory(lastKey);
           document.getElementById('chat-current-name').textContent = '💬 ' + session.name;
-          document.getElementById('page-title').textContent = '小虾米 - 聊天 | ' + session.name;
+          
           renderChatMessages();
           renderChatSessions();
           return;
@@ -1198,7 +1198,7 @@
         localStorage.setItem(chatCurrentKey, firstSession.key);
         chatHistory = await loadChatHistory(firstSession.key);
         document.getElementById('chat-current-name').textContent = '💬 ' + firstSession.name;
-        document.getElementById('page-title').textContent = '小虾米 - 聊天 | ' + firstSession.name;
+        
         renderChatMessages();
         renderChatSessions();
       }
