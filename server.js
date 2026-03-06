@@ -667,8 +667,27 @@ app.get('/api/configs', (req, res) => {
 });
 
 // API: Backup - Create (Git commit)
+// Check git config
+function checkGitConfig() {
+  try {
+    const userName = execAsync(`cd "${OPENCLAW_DIR}" && git config user.name`).catch(() => '').trim();
+    const userEmail = execAsync(`cd "${OPENCLAW_DIR}" && git config user.email`).catch(() => '').trim();
+    if (!userName || !userEmail) {
+      return { configured: false, message: '请先配置 Git: git config --global user.name "你的名字" && git config --global user.email "你的邮箱"' };
+    }
+    return { configured: true };
+  } catch (e) {
+    return { configured: false, message: 'Git 未配置或非 Git 仓库' };
+  }
+}
+
 app.post('/api/backup', async (req, res) => {
   try {
+    const gitCheck = checkGitConfig();
+    if (!gitCheck.configured) {
+      return res.status(400).json({ error: gitCheck.message });
+    }
+    
     const now = new Date();
     const desc = `日常备份（${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}）`;
     
@@ -717,6 +736,11 @@ app.get('/api/backup/:name/details', async (req, res) => {
 // API: Backup - Restore (Git checkout)
 app.post('/api/backup/:name/restore', async (req, res) => {
   try {
+    const gitCheck = checkGitConfig();
+    if (!gitCheck.configured) {
+      return res.status(400).json({ error: gitCheck.message });
+    }
+    
     const { name } = req.params;
     const cmd = `cd "${OPENCLAW_DIR}" && git checkout ${name} -- . 2>&1`;
     const output = await execAsync(cmd).catch(e => e.message);
