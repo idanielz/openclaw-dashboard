@@ -331,24 +331,22 @@
       
       <!-- Weather -->
       <div class="card" style="background: linear-gradient(135deg, #1e3a5f, #0f172a); border: 1px solid #1e40af;">
-        <div style="text-align:center;margin-bottom:8px;">
-          <div style="font-size:20px;font-weight:700;color:#fff;" id="greeting-text">你好 👋</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.7);" id="datetime-text">--</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:14px;color:rgba(255,255,255,0.7);" id="greeting-text">你好 👋</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.6);" id="datetime-text">--</div>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div style="flex:1;">
-            <div style="font-size:12px;color:rgba(255,255,255,0.7);">🌤️ 北京天气</div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-              <span style="font-size:32px;font-weight:700;color:#fff;" id="weather-temp">--°</span>
-              <span style="font-size:16px;color:rgba(255,255,255,0.8);" id="weather-desc">加载中...</span>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <span style="font-size:24px;" id="weather-icon">⛅</span>
-              <div style="display:flex;gap:16px;font-size:12px;color:rgba(255,255,255,0.8);">
-                <span>💧 <span id="weather-humidity">--</span>%</span>
-                <span>🤒 体感<span id="weather-feels">--</span>°</span>
-              </div>
-            </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <span style="font-size:36px;font-weight:700;color:#fff;" id="weather-temp">--°</span>
+            <span style="font-size:14px;color:rgba(255,255,255,0.8);margin-left:8px;" id="weather-desc">加载中...</span>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:32px;" id="weather-icon">⛅</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.15);font-size:12px;color:rgba(255,255,255,0.7);">
+          <span>💧 湿度: <span id="weather-humidity">--</span>%</span>
+          <span>🌡️ 体感: <span id="weather-feels">--</span>°</span>
         </div>
         <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.15);">
           <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:4px;">📅 预报</div>
