@@ -668,10 +668,10 @@ app.get('/api/configs', (req, res) => {
 
 // API: Backup - Create (Git commit)
 // Check git config
-function checkGitConfig() {
+async function checkGitConfig() {
   try {
-    const userName = execAsync(`cd "${OPENCLAW_DIR}" && git config user.name`).catch(() => '').trim();
-    const userEmail = execAsync(`cd "${OPENCLAW_DIR}" && git config user.email`).catch(() => '').trim();
+    const userName = (await execAsync(`cd "${OPENCLAW_DIR}" && git config user.name`).catch(() => '')).trim();
+    const userEmail = (await execAsync(`cd "${OPENCLAW_DIR}" && git config user.email`).catch(() => '')).trim();
     if (!userName || !userEmail) {
       return { configured: false, message: '请先配置 Git: git config --global user.name "你的名字" && git config --global user.email "你的邮箱"' };
     }
