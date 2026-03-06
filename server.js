@@ -709,7 +709,11 @@ app.post('/api/backup', express.json(), async (req, res) => {
     }
     const output = await execAsync(cmd).catch(e => e.message);
     
-    res.json({ success: true, message: '备份成功（本地）', output: output.substring(0, 1000) });
+    // Push to remote (with timeout)
+    const pushCmd = `cd "${OPENCLAW_DIR}" && timeout 10 git push 2>&1 || echo "push_timeout"`;
+    const pushOutput = await execAsync(pushCmd).catch(() => 'push_failed');
+    
+    res.json({ success: true, message: pushOutput.includes('push_timeout') ? '备份成功（本地）' : '备份成功', output: output.substring(0, 1000) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
