@@ -1,14 +1,14 @@
 # 🦞 小虾米 - OpenClaw 管理面板
 
 <p align="center">
-  <img src="screenshots/01-overview.jpg" alt="概览" width="100%">
-  <img src="screenshots/02-cron.jpg" alt="定时任务" width="100%">
-  <img src="screenshots/03-sessions.jpg" alt="会话" width="100%">
-  <img src="screenshots/04-skills.jpg" alt="Skills" width="100%">
-  <img src="screenshots/05-chat-desktop.jpg" alt="聊天-桌面端" width="100%">
-  <img src="screenshots/06-chat-mobile.jpg" alt="聊天-移动端" width="100%">
-  <img src="screenshots/07-config.jpg" alt="配置" width="100%">
-  <img src="screenshots/08-logs.jpg" alt="日志" width="100%">
+  <img src="screenshots/01-overview.jpg" alt="概览" width="49%">
+  <img src="screenshots/02-cron.jpg" alt="定时任务" width="49%">
+  <img src="screenshots/03-sessions.jpg" alt="会话" width="49%">
+  <img src="screenshots/04-skills.jpg" alt="Skills" width="49%">
+  <img src="screenshots/05-chat-desktop.jpg" alt="聊天-桌面端" width="49%">
+  <img src="screenshots/06-chat-mobile.jpg" alt="聊天-移动端" width="49%">
+  <img src="screenshots/07-config.jpg" alt="配置" width="49%">
+  <img src="screenshots/08-logs.jpg" alt="日志" width="49%">
 </p>
 
 一个美观、实用的 OpenClaw Web 管理面板，支持模型切换、定时任务管理、配置编辑、实时日志查看等功能。
