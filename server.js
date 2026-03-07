@@ -18,9 +18,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Helper: Execute shell command
-function execAsync(cmd) {
+function execAsync(cmd, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timeout')), timeoutMs);
     exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      clearTimeout(timer);
       if (error) reject(error);
       else resolve(stdout);
     });
@@ -709,11 +711,11 @@ app.post('/api/backup', express.json(), async (req, res) => {
     }
     const output = await execAsync(cmd).catch(e => e.message);
     
-    // Push to remote (with timeout)
-    const pushCmd = `cd "${OPENCLAW_DIR}" && timeout 10 git push 2>&1 || echo "push_timeout"`;
-    const pushOutput = await execAsync(pushCmd).catch(() => 'push_failed');
+    // Push to remote (use promise timeout instead of shell timeout)
+    const pushCmd = `cd "${OPENCLAW_DIR}" && GIT_TERMINAL_PROMPT=0 git push 2>&1`;
+    const pushOutput = await execAsync(pushCmd, 30000).catch(() => 'push_failed');
     
-    res.json({ success: true, message: pushOutput.includes('push_timeout') ? '备份成功（本地）' : '备份成功', output: output.substring(0, 1000) });
+    res.json({ success: true, message: pushOutput.includes('push_failed') || pushOutput.includes('Timeout') ? '备份成功（本地）' : '备份成功', output: output.substring(0, 1000) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -761,6 +763,19 @@ app.get('/api/backups', async (req, res) => {
     }).filter(c => c);
     
     res.json(commits);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Get last backup time
+app.get('/api/backup/latest', async (req, res) => {
+  try {
+    // 获取时间戳
+    const cmd = `cd "${OPENCLAW_DIR}" && git log -1 --format="%ct" 2>&1`;
+    const output = await execAsync(cmd).catch(() => '');
+    const timestamp = parseInt(output.trim()) || null;
+    res.json({ timestamp });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -894,7 +909,7 @@ app.post('/api/gateway/restart', async (req, res) => {
 // API: Doctor Fix
 app.post('/api/doctor/fix', async (req, res) => {
   try {
-    const output = await execAsync('export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && openclaw doctor fix 2>&1');
+    const output = await execAsync('export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && openclaw doctor --fix 2>&1');
     res.json({ success: true, output: output.substring(0, 5000) });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1298,4 +1313,137 @@ app.delete('/api/chat/messages/:key', async (req, res) => {
 // ========== Start server ==========
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`OpenClaw Dashboard running on http://0.0.0.0:${PORT}`);
+});
+
+// ========== Watchdog API ==========
+
+// 获取 Watchdog 状态
+app.get('/api/watchdog/status', async (req, res) => {
+  try {
+    // 检查 watchdog 是否运行
+    let watchdogRunning = false;
+    try {
+      const result = await execAsync('launchctl list | grep ai.openclaw.watchdog');
+      watchdogRunning = result.includes('ai.openclaw.watchdog');
+    } catch {
+      watchdogRunning = false;
+    }
+
+    // 检查 Gateway 是否运行
+    let gatewayRunning = false;
+    try {
+      const result = await execAsync('launchctl list | grep ai.openclaw.gateway');
+      gatewayRunning = result.includes('ai.openclaw.gateway') && !result.includes('"-');
+    } catch {
+      gatewayRunning = false;
+    }
+
+    // 尝试 HTTP 检测
+    let gatewayHealthy = false;
+    try {
+      const result = await execAsync('curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/health');
+      gatewayHealthy = result.trim() === '200';
+    } catch {
+      gatewayHealthy = false;
+    }
+
+    // 读取 watchdog 日志（最后 20 行）
+    let watchdogLogs = '';
+    try {
+      watchdogLogs = await execAsync('tail -20 ~/.openclaw/logs/watchdog.log 2>/dev/null || echo "No logs"');
+    } catch {
+      watchdogLogs = 'Unable to read logs';
+    }
+
+    res.json({
+      watchdogRunning,
+      gatewayRunning,
+      gatewayHealthy,
+      lastCheck: new Date().toISOString(),
+      logs: watchdogLogs.trim().split('\n').slice(-10)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 手动重启 Gateway
+app.post('/api/watchdog/restart-gateway', async (req, res) => {
+  try {
+    // 先停止
+    await execAsync('launchctl stop ai.openclaw.gateway');
+    
+    // 等待 2 秒
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // 再启动
+    await execAsync('launchctl start ai.openclaw.gateway');
+    
+    // 等待 5 秒后检测
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    // 检查是否成功
+    let gatewayHealthy = false;
+    try {
+      const result = await execAsync('curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/health');
+      gatewayHealthy = result.trim() === '200';
+    } catch {
+      gatewayHealthy = false;
+    }
+
+    res.json({
+      success: true,
+      gatewayHealthy,
+      message: gatewayHealthy ? 'Gateway 重启成功' : 'Gateway 重启命令已执行，但健康检查未通过'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 停止 Gateway
+app.post('/api/watchdog/stop-gateway', async (req, res) => {
+  try {
+    await execAsync('launchctl stop ai.openclaw.gateway');
+    res.json({ success: true, message: 'Gateway 已停止' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 启动 Gateway
+app.post('/api/watchdog/start-gateway', async (req, res) => {
+  try {
+    await execAsync('launchctl start ai.openclaw.gateway');
+    
+    // 等待 5 秒后检测
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    let gatewayHealthy = false;
+    try {
+      const result = await execAsync('curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/health');
+      gatewayHealthy = result.trim() === '200';
+    } catch {
+      gatewayHealthy = false;
+    }
+
+    res.json({
+      success: true,
+      gatewayHealthy,
+      message: gatewayHealthy ? 'Gateway 启动成功' : 'Gateway 启动命令已执行'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 获取 Gateway 日志
+app.get('/api/watchdog/gateway-logs', async (req, res) => {
+  try {
+    const lines = req.query.lines || 50;
+    const logs = await execAsync(`tail -${lines} ~/.openclaw/logs/gateway.log 2>/dev/null || echo "No logs"`);
+    res.json({ logs: logs.trim().split('\n') });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
